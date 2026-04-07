@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Eleke Project</title>
+    <title>Register Eleke Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -19,10 +19,15 @@
             </div>
         </div>
 
-        <h2 class="text-center text-3xl font-bold text-slate-800">Welcome Back</h2>
-        <p class="text-center text-slate-400 mb-8 uppercase text-xs tracking-widest font-semibold mt-2">Authorized Access Only</p>
+        <h2 class="text-center text-3xl font-bold text-slate-800">Create Admin Account</h2>
+        <p class="text-center text-slate-400 mb-8 uppercase text-xs tracking-widest font-semibold mt-2">Admin Registration</p>
 
-        <form id="loginForm" class="space-y-5">
+        <form id="registerForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Full Name</label>
+                <input type="text" id="name" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="John Doe">
+            </div>
+
             <div>
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Email Address</label>
                 <input type="email" id="email" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="admin@example.com">
@@ -33,13 +38,18 @@
                 <input type="password" id="password" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="••••••••">
             </div>
 
-            <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all transform active:scale-95">
-                Sign In 
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Admin Secret</label>
+                <input type="password" id="adminSecret" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="••••••••">
+            </div>
+
+            <button type="submit" id="registerBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all transform active:scale-95">
+                Create Account
             </button>
         </form>
 
         <div class="text-center mt-4">
-            <a href="register.html" class="text-blue-600 hover:underline">Don't have an account? Register here</a>
+            <a href="login.html" class="text-blue-600 hover:underline">Already have an account? Login here</a>
         </div>
 
         <div class="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
@@ -48,31 +58,33 @@
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const btn = document.getElementById('loginBtn');
+            const adminSecret = document.getElementById('adminSecret').value;
+            const btn = document.getElementById('registerBtn');
             btn.disabled = true;
-            btn.textContent = 'Signing In...';
+            btn.textContent = 'Creating Account...';
             try {
-                const res = await fetch('http://localhost:5000/api/auth/login', {
+                const res = await fetch('http://localhost:5000/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ name, email, password, adminSecret })
                 });
                 const data = await res.json();
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
                     window.location.href = 'index.html';
                 } else {
-                    alert(data.message || 'Login failed');
+                    alert(data.message || 'Registration failed');
                 }
             } catch (err) {
                 alert('Network error. Please check if backend is running.');
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Sign In';
+                btn.textContent = 'Create Account';
             }
         });
     </script>

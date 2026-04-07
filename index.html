@@ -1,16 +1,4 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <link href="/src/style.css" rel="stylesheet">
-
-    <title>eleke-project</title>
-  </head>
-  <body>
-   
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -20,7 +8,45 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-100 font-sans antialiased" x-data="{ page: 'dashboard' }">
+<body class="bg-gray-100 font-sans antialiased" x-data="{
+    page: 'dashboard',
+    logout: () => { localStorage.removeItem('token'); window.location.href = 'login.html'; },
+    summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRentSummary: { totalRentals: 0, activeRentals: 0, totalRevenue: 0, activeRevenue: 0 }, supplySummary: { totalSupplies: 0, activeSupplies: 0, lowStockItems: 0, outOfStockItems: 0, totalValue: 0 } },
+    async loadSummary() {
+        const token = localStorage.getItem('token');
+        try {
+            const [receiptRes, landRentRes, supplyRes] = await Promise.all([
+                fetch('http://localhost:5000/api/receipts/summary', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }),
+                fetch('http://localhost:5000/api/landrents/summary', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }),
+                fetch('http://localhost:5000/api/supplies/summary', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                })
+            ]);
+            
+            if (receiptRes.ok) {
+                const receiptData = await receiptRes.json();
+                this.summary.totalReceipts = receiptData.totalReceipts || 0;
+                this.summary.totalCredit = receiptData.totalCreditAmount || 0;
+                this.summary.totalDebit = receiptData.totalDebitAmount || 0;
+                this.summary.totalBalance = receiptData.totalBalance || 0;
+            }
+            
+            if (landRentRes.ok) {
+                this.summary.landRentSummary = await landRentRes.json();
+            }
+            
+            if (supplyRes.ok) {
+                this.summary.supplySummary = await supplyRes.json();
+            }
+        } catch (err) {
+            console.error('Failed to load summary', err);
+        }
+    }
+}" x-init="loadSummary()">
 
     <div class="flex h-screen overflow-hidden">
         
@@ -60,10 +86,10 @@
             </nav>
 
             <div class="p-4 border-t border-slate-800 text-xs text-slate-500 text-left">
-              <a href="login.html" class="flex items-center justify-center gap-2 hover:bg-slate-800 text-red-500 font-bold rounded-lg px-4 py-3 transition-colors">
+              <button @click="logout" class="flex items-center justify-center gap-2 hover:bg-slate-800 text-red-500 font-bold rounded-lg px-4 py-3 transition-colors w-full">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
                 <span class="font-medium">LogOut</span>
-              </a>
+              </button>
             </div>
         </aside>
 
@@ -74,16 +100,20 @@
                     <h2 class="text-3xl font-bold text-gray-800 mb-8 uppercase tracking-wide">Dashboard Overview</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Land Revenue</p>
-                            <p class="text-3xl font-black text-green-600 mt-1">#450,000</p>
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Receipts</p>
+                            <p class="text-3xl font-black text-green-600 mt-1" x-text="summary.totalReceipts"></p>
                         </div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-sm font-semibold uppercase">Land Revenue this Week</p>
-                            <p class="text-3xl font-black text-green-500 mt-1">#12,400</p>
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Credits</p>
+                            <p class="text-3xl font-black text-green-500 mt-1" x-text="'₦' + summary.totalCredit.toLocaleString()"></p>
                         </div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Truck This Week</p>
-                            <p class="text-3xl font-black text-blue-600 mt-1">84 Units</p>
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Debits</p>
+                            <p class="text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.totalDebit.toLocaleString()"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Balance</p>
+                            <p class="text-3xl font-black text-orange-600 mt-1" x-text="'₦' + summary.totalBalance.toLocaleString()"></p>
                         </div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                             <p class="text-gray-500 text-sm font-semibold uppercase">Agent Revenue today</p>
@@ -91,11 +121,51 @@
                         </div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                             <p class="text-gray-500 text-sm font-semibold uppercase">Agent Revenue This Week</p>
-                            <p class="text-3xl font-black text-orange-500 mt-1">#8,900</p>
+                            <p class="text-3xl font-black text-purple-600 mt-1">#8,900</p>
+                        </div>
+                    </div>
+
+                    <!-- Land Rent Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Land Rentals</p>
+                            <p class="text-3xl font-black text-purple-600 mt-1" x-text="summary.landRentSummary.totalRentals"></p>
                         </div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Agent Revenue</p>
-                            <p class="text-3xl font-black text-purple-600 mt-1">#98,300</p>
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Active Rentals</p>
+                            <p class="text-3xl font-black text-green-600 mt-1" x-text="summary.landRentSummary.activeRentals"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Land Revenue</p>
+                            <p class="text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.landRentSummary.totalRevenue.toLocaleString()"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Active Revenue</p>
+                            <p class="text-3xl font-black text-indigo-600 mt-1" x-text="'₦' + summary.landRentSummary.activeRevenue.toLocaleString()"></p>
+                        </div>
+                    </div>
+
+                    <!-- Supply Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-8">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Total Supplies</p>
+                            <p class="text-3xl font-black text-purple-600 mt-1" x-text="summary.supplySummary.totalSupplies"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Active Items</p>
+                            <p class="text-3xl font-black text-green-600 mt-1" x-text="summary.supplySummary.activeSupplies"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Low Stock</p>
+                            <p class="text-3xl font-black text-yellow-600 mt-1" x-text="summary.supplySummary.lowStockItems"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Out of Stock</p>
+                            <p class="text-3xl font-black text-red-600 mt-1" x-text="summary.supplySummary.outOfStockItems"></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <p class="text-gray-500 text-sm font-semibold uppercase">Inventory Value</p>
+                            <p class="text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.supplySummary.totalValue.toLocaleString()"></p>
                         </div>
                     </div>
                 </div>
@@ -105,16 +175,107 @@
                 <div class="space-y-6" x-data="{ 
                     search: '', 
                     showModal: false,
-                    receipts: [
-                        { id: 'REC-001', name: 'Alhaji Musa', date: '2026-04-01', amount: '₦50,000' },
-                        { id: 'REC-002', name: 'Chioma Okoro', date: '2026-04-03', amount: '₦120,000' },
-                        { id: 'REC-003', name: 'Abubakar Sadiq', date: '2026-04-05', amount: '₦35,000' },
-                        { id: 'REC-004', name: 'Olawale Ade', date: '2026-04-06', amount: '₦85,000' }
-                    ],
-                    get filteredReceipts() {
-                        return this.receipts.filter(r => r.name.toLowerCase().includes(this.search.toLowerCase()) || r.id.toLowerCase().includes(this.search.toLowerCase()))
-                    }
-                }">
+                    receipts: [],
+                    customerName: '',                    customerPhone: '',                    itemDesc: '',
+                    quantity: '',
+                    dust: '',
+                    rate: '',
+                    expenses: '',
+                    totalPayment: '',
+                    currentReceipt: null,
+                    async init() {
+                        await this.loadReceipts();
+                    },
+                    async loadReceipts() {
+                        const token = localStorage.getItem('token');
+                        try {
+                            const res = await fetch('http://localhost:5000/api/receipts', {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            if (res.ok) {
+                                this.receipts = await res.json();
+                            } else {
+                                alert('Failed to load receipts');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    async createReceipt() {
+                        const token = localStorage.getItem('token');
+                        const credits = this.quantity && this.rate ? [{ description: this.itemDesc, qty: parseFloat(this.quantity), rate: parseFloat(this.rate), amount: parseFloat(this.quantity) * parseFloat(this.rate) }] : [];
+                        const less = [];
+                        if (this.dust) less.push({ description: 'Dust Deduction', amount: parseFloat(this.dust), date: new Date() });
+                        if (this.expenses) less.push({ description: 'Expense Deduction', amount: parseFloat(this.expenses), date: new Date() });
+                        
+                        const data = {
+                            customerName: this.customerName,
+                            customerPhone: this.customerPhone,
+                            receiptTitle: this.itemDesc,
+                            credits,
+                            less,
+                            companyInfo: { name: 'Gani Eleke Ent', email: 'info@ganieleke.com', phone: '08012345678', whatsapp: '08012345678', address: 'Lagos, Nigeria' },
+                            creditorName: 'Gani Eleke',
+                            creditorPhone: '08012345678'
+                        };
+                        
+                        try {
+                            const res = await fetch('http://localhost:5000/api/receipts', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                                body: JSON.stringify(data)
+                            });
+                            if (res.ok) {
+                                const receipt = await res.json();
+                                this.receipts.unshift(receipt);
+                                this.currentReceipt = receipt;
+                                this.showModal = true;
+                                this.loadSummary(); // Refresh dashboard summary
+                                // Reset form
+                                this.customerName = '';
+                                this.customerPhone = '';
+                                this.itemDesc = '';
+                                this.quantity = '';
+                                this.dust = '';
+                                this.rate = '';
+                                this.expenses = '';
+                            } else {
+                                const error = await res.json();
+                                alert(error.message || 'Error creating receipt');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    async downloadPDF(type) {
+                        if (!this.currentReceipt) return;
+                        const token = localStorage.getItem('token');
+                        try {
+                            const res = await fetch(`http://localhost:5000/api/receipts/${this.currentReceipt._id}/pdf`, {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.pdf`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                this.showModal = false;
+                            } else {
+                                alert('Failed to generate PDF');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    get totalPayment() {
+                        const subTotal = this.quantity && this.rate ? parseFloat(this.quantity) * parseFloat(this.rate) : 0;
+                        const debit = (this.dust ? parseFloat(this.dust) : 0) + (this.expenses ? parseFloat(this.expenses) : 0);
+                        return Math.max(subTotal - debit, 0);
+                    },
+                }" x-init="init()">
                     
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-xl font-bold text-slate-800 uppercase tracking-tight">Find Older Receipt</h2>
@@ -134,13 +295,13 @@
                                 x-transition
                                 class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
                                 <div class="bg-slate-50 p-2 text-[10px] font-bold text-slate-400 uppercase border-b tracking-widest">Recent Matches</div>
-                                <template x-for="receipt in filteredReceipts" :key="receipt.id">
+                                <template x-for="receipt in filteredReceipts" :key="receipt._id">
                                     <button class="w-full flex items-center justify-between p-3 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 text-left">
                                         <div>
-                                            <p class="text-sm font-bold text-slate-800" x-text="receipt.name"></p>
-                                            <p class="text-[10px] text-slate-400" x-text="receipt.id + ' • ' + receipt.date"></p>
+                                            <p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p>
+                                            <p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p>
                                         </div>
-                                        <span class="text-sm font-black text-blue-600" x-text="receipt.amount"></span>
+                                        <span class="text-sm font-black text-blue-600" x-text="'₦' + receipt.balance.toLocaleString()"></span>
                                     </button>
                                 </template>
                             </div>
@@ -150,46 +311,51 @@
                     <div class="max-w-2xl mx-auto bg-white p-10 rounded-3xl shadow-xl border border-gray-100">
                         <h2 class="text-2xl font-bold mb-8 text-center text-slate-800 border-b pb-4">Generate New Receipt</h2>
                         
-                        <div class="space-y-5">
+                        <form @submit.prevent="createReceipt()" class="space-y-5">
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Customer Information</label>
-                                <input type="text" placeholder="Customer Name" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
+                                <input type="text" x-model="customerName" placeholder="Customer Name" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500" required>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Customer Phone</label>
+                                <input type="tel" x-model="customerPhone" placeholder="Customer Phone Number" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
                             </div>
 
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Item Description</label>
-                                <input type="text" placeholder="Details Item {Mix, Special, Cast}" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
+                                <input type="text" x-model="itemDesc" placeholder="Details Item {Mix, Special, Cast}" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500" required>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Quantity</label>
-                                    <input type="number" placeholder="Quantity {Tons}" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
+                                    <input type="number" x-model="quantity" placeholder="Quantity {Tons}" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500" step="0.01" required>
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Dust</label>
-                                    <input type="number" placeholder="Dust Amount" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
+                                    <input type="number" x-model="dust" placeholder="Dust Amount" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500" step="0.01">
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Rate</label>
-                                    <input type="number" placeholder="Rate Per Ton" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
+                                    <input type="number" x-model="rate" placeholder="Rate Per Ton" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500" step="0.01" required>
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-bold uppercase text-slate-400 ml-1">Expenses</label>
-                                    <input type="number" placeholder="Offloading Expenses" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500">
+                                    <input type="number" x-model="expenses" placeholder="Offloading Expenses" class="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-blue-500" step="0.01">
                                 </div>
                             </div>
 
                             <div class="space-y-1 pt-2">
                                 <label class="text-[10px] font-bold uppercase text-slate-400 ml-1 text-blue-600">Total Payment</label>
-                                <input type="number" placeholder="Final Payment Amount" class="w-full p-4 bg-blue-50/50 border-2 border-blue-100 rounded-xl outline-blue-500 font-bold text-lg text-blue-700">
+                                <input type="number" :value="totalPayment" placeholder="Final Payment Amount" class="w-full p-4 bg-blue-50/50 border-2 border-blue-100 rounded-xl outline-blue-500 font-bold text-lg text-blue-700" readonly>
                             </div>
                             
-                            <button @click="showModal = true" class="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-100 transition transform active:scale-95 flex items-center justify-center gap-3">
+                            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-100 transition transform active:scale-95 flex items-center justify-center gap-3">
                                 <i class="fa-solid fa-print"></i>
                                 Print Receipt
                             </button>
-                        </div>
+                        </form>
                     </div>
 
                     <div x-show="showModal" 
@@ -208,11 +374,11 @@
                             <p class="text-slate-500 text-sm mb-8 px-4">Select the destination for this receipt copy.</p>
                             
                             <div class="space-y-3">
-                                <button @click="showModal = false" class="w-full py-4 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition flex items-center justify-center gap-3">
+                                <button @click="downloadPDF('company')" class="w-full py-4 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition flex items-center justify-center gap-3">
                                     <i class="fa-solid fa-building-shield text-slate-400"></i> Company Copy
                                 </button>
                                 
-                                <button @click="showModal = false" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-3 shadow-xl shadow-blue-200">
+                                <button @click="downloadPDF('customer')" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-3 shadow-xl shadow-blue-200">
                                     <i class="fa-solid fa-user-check text-blue-200"></i> Customer Copy
                                 </button>
                                 
@@ -226,66 +392,514 @@
             </template>
 
             <template x-if="page === 'landrent'">
-                <div class="max-w-2xl bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-6 italic text-slate-700 underline">Land Rental Documentation</h2>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="col-span-2">
-                            <label class="text-xs font-bold uppercase text-gray-400">Customer Name</label>
-                            <input type="text" class="w-full p-3 border rounded-lg mt-1">
-                        </div>
-                        <div class="col-span-2">
-                            <label class="text-xs font-bold uppercase text-gray-400">Truck Type</label>
-                            <input type="text" class="w-full p-3 border rounded-lg mt-1">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold uppercase text-gray-400">Start Date</label>
-                            <input type="date" class="w-full p-3 border rounded-lg mt-1">
-                        </div>
-                        <div>
-                            <label class="text-xs font-bold uppercase text-gray-400">Duration</label>
-                            <input type="number" class="w-full p-3 border rounded-lg mt-1">
-                        </div>
-                        <div class="col-span-2">
-                            <label class="text-xs font-bold uppercase text-gray-400">Plot Number</label>
-                            <input type="text" class="w-full p-3 border rounded-lg mt-1">
-                        </div>
-                        <button class="col-span-2 bg-slate-800 text-white py-4 rounded-lg font-bold">Register Rental</button>
-                    </div>
-
-                    <template>
-                      <div class="grid grid-cols-2 gap-4">
-                      <h2 class="text-2xl font-bold mb-6 italic text-slate-700 underline">All Land Transactions</h2>
-
-                    </div>
-                    </template>
+                <div class="space-y-6" x-data="{
+                    landRents: [],
+                    customerName: '',
+                    customerPhone: '',
+                    truckType: '',
+                    startDate: '',
+                    duration: '',
+                    plotNumber: '',
+                    rentalRate: '',
+                    notes: '',
+                    showForm: true,
+                    async init() {
+                        await this.loadLandRents();
+                    },
+                    async loadLandRents() {
+                        const token = localStorage.getItem('token');
+                        try {
+                            const res = await fetch('http://localhost:5000/api/landrents', {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            if (res.ok) {
+                                this.landRents = await res.json();
+                            } else {
+                                alert('Failed to load land rentals');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    async createLandRent() {
+                        const token = localStorage.getItem('token');
+                        const data = {
+                            customerName: this.customerName,
+                            customerPhone: this.customerPhone,
+                            truckType: this.truckType,
+                            startDate: this.startDate,
+                            duration: parseInt(this.duration),
+                            plotNumber: this.plotNumber,
+                            rentalRate: parseFloat(this.rentalRate),
+                            notes: this.notes
+                        };
+                        
+                        try {
+                            const res = await fetch('http://localhost:5000/api/landrents', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                                body: JSON.stringify(data)
+                            });
+                            if (res.ok) {
+                                const landRent = await res.json();
+                                this.landRents.unshift(landRent);
+                                // Reset form
+                                this.customerName = '';
+                                this.customerPhone = '';
+                                this.truckType = '';
+                                this.startDate = '';
+                                this.duration = '';
+                                this.plotNumber = '';
+                                this.rentalRate = '';
+                                this.notes = '';
+                                alert('Land rental registered successfully!');
+                            } else {
+                                const error = await res.json();
+                                alert(error.message || 'Error creating land rental');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    get totalAmount() {
+                        const rate = parseFloat(this.rentalRate) || 0;
+                        const dur = parseInt(this.duration) || 0;
+                        return rate * dur;
+                    }
+                }" x-init="init()">
                     
+                    <!-- Registration Form -->
+                    <div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-100" x-show="showForm">
+                        <h2 class="text-2xl font-bold mb-6 text-slate-800 border-b pb-4">Land Rental Registration</h2>
+                        <form @submit.prevent="createLandRent()" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Customer Name</label>
+                                    <input type="text" x-model="customerName" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Customer Phone</label>
+                                    <input type="tel" x-model="customerPhone" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Truck Type</label>
+                                    <input type="text" x-model="truckType" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Plot Number</label>
+                                    <input type="text" x-model="plotNumber" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Start Date</label>
+                                    <input type="date" x-model="startDate" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Duration (Days)</label>
+                                    <input type="number" x-model="duration" min="1" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Daily Rate (₦)</label>
+                                    <input type="number" x-model="rentalRate" step="0.01" min="0" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Total Amount (₦)</label>
+                                <input type="text" :value="'₦' + totalAmount.toLocaleString()" class="w-full p-3 bg-blue-50 border-2 border-blue-200 rounded-lg font-bold text-blue-700" readonly>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
+                                <textarea x-model="notes" rows="3" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Additional notes..."></textarea>
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold hover:bg-blue-700 transition">
+                                Register Land Rental
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Land Rentals List -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <h2 class="text-xl font-bold text-gray-800">All Land Rental Transactions</h2>
+                            <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold" x-text="landRents.filter(r => r.status === 'active').length + ' Active'"></span>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Customer</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Plot</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Truck Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Duration</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">End Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <template x-for="rental in landRents" :key="rental._id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900" x-text="rental.customerName"></div>
+                                                <div class="text-sm text-gray-500" x-text="rental.customerPhone"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="rental.plotNumber"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="rental.truckType"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="rental.duration + ' days'"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600" x-text="'₦' + rental.totalAmount.toLocaleString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
+                                                      :class="rental.status === 'active' ? 'bg-green-100 text-green-800' : rental.status === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'"
+                                                      x-text="rental.status"></span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="new Date(rental.endDate).toLocaleDateString()"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div x-show="landRents.length === 0" class="p-8 text-center text-gray-500">
+                            <i class="fa-solid fa-house-chimney-user text-4xl mb-4 text-gray-300"></i>
+                            <p>No land rental transactions yet.</p>
+                        </div>
+                    </div>
                 </div>
             </template>
 
             <template x-if="page === 'supplies'">
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h2 class="text-xl font-bold text-gray-800">Inventory Supply Names</h2>
-                        <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">Active List</span>
+                <div class="space-y-6" x-data="{
+                    supplies: [],
+                    categories: [],
+                    showForm: false,
+                    search: '',
+                    categoryFilter: '',
+                    statusFilter: '',
+                    // Form data
+                    name: '',
+                    description: '',
+                    category: '',
+                    unit: '',
+                    currentStock: '',
+                    minimumStock: '',
+                    unitPrice: '',
+                    supplier: '',
+                    location: '',
+                    barcode: '',
+                    notes: '',
+                    async init() {
+                        await this.loadSupplies();
+                        await this.loadCategories();
+                    },
+                    async loadSupplies() {
+                        const token = localStorage.getItem('token');
+                        try {
+                            const params = new URLSearchParams();
+                            if (this.categoryFilter) params.append('category', this.categoryFilter);
+                            if (this.statusFilter) params.append('status', this.statusFilter);
+                            
+                            const res = await fetch(`http://localhost:5000/api/supplies?${params}`, {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            if (res.ok) {
+                                this.supplies = await res.json();
+                            } else {
+                                alert('Failed to load supplies');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    async loadCategories() {
+                        const token = localStorage.getItem('token');
+                        try {
+                            const res = await fetch('http://localhost:5000/api/supplies/categories', {
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            if (res.ok) {
+                                this.categories = await res.json();
+                            }
+                        } catch (err) {
+                            console.error('Failed to load categories');
+                        }
+                    },
+                    async createSupply() {
+                        const token = localStorage.getItem('token');
+                        const data = {
+                            name: this.name,
+                            description: this.description,
+                            category: this.category,
+                            unit: this.unit,
+                            currentStock: parseFloat(this.currentStock) || 0,
+                            minimumStock: parseFloat(this.minimumStock) || 0,
+                            unitPrice: parseFloat(this.unitPrice),
+                            supplier: this.supplier,
+                            location: this.location,
+                            barcode: this.barcode,
+                            notes: this.notes
+                        };
+                        
+                        try {
+                            const res = await fetch('http://localhost:5000/api/supplies', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                                body: JSON.stringify(data)
+                            });
+                            if (res.ok) {
+                                const supply = await res.json();
+                                this.supplies.unshift(supply);
+                                this.resetForm();
+                                this.showForm = false;
+                                alert('Supply added successfully!');
+                            } else {
+                                const error = await res.json();
+                                alert(error.message || 'Error creating supply');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    async updateStock(supplyId, operation) {
+                        const quantity = prompt(`Enter quantity to ${operation}:`);
+                        if (!quantity || isNaN(quantity)) return;
+                        
+                        const token = localStorage.getItem('token');
+                        try {
+                            const res = await fetch(`http://localhost:5000/api/supplies/${supplyId}/stock`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                                body: JSON.stringify({ quantity: parseFloat(quantity), operation })
+                            });
+                            if (res.ok) {
+                                const updatedSupply = await res.json();
+                                const index = this.supplies.findIndex(s => s._id === supplyId);
+                                if (index !== -1) {
+                                    this.supplies[index] = updatedSupply;
+                                }
+                                alert(`Stock ${operation}d successfully!`);
+                            } else {
+                                const error = await res.json();
+                                alert(error.message || 'Error updating stock');
+                            }
+                        } catch (err) {
+                            alert('Network error');
+                        }
+                    },
+                    resetForm() {
+                        this.name = '';
+                        this.description = '';
+                        this.category = '';
+                        this.unit = '';
+                        this.currentStock = '';
+                        this.minimumStock = '';
+                        this.unitPrice = '';
+                        this.supplier = '';
+                        this.location = '';
+                        this.barcode = '';
+                        this.notes = '';
+                    },
+                    get filteredSupplies() {
+                        return this.supplies.filter(supply => 
+                            supply.name.toLowerCase().includes(this.search.toLowerCase()) ||
+                            supply.category.toLowerCase().includes(this.search.toLowerCase())
+                        );
+                    },
+                    getStockStatus(supply) {
+                        if (supply.currentStock === 0) return { text: 'Out of Stock', color: 'red' };
+                        if (supply.currentStock <= supply.minimumStock) return { text: 'Low Stock', color: 'yellow' };
+                        return { text: 'In Stock', color: 'green' };
+                    }
+                }" x-init="init()">
+                    
+                    <!-- Header with Add Button -->
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Inventory Management</h2>
+                            <p class="text-slate-500 text-sm mt-1" x-text="`${supplies.length} items in inventory`"></p>
+                        </div>
+                        <button @click="showForm = !showForm" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            Add Supply
+                        </button>
                     </div>
-                    <ul class="divide-y divide-gray-100">
-                        <li class="p-5 flex items-center justify-between hover:bg-gray-50">
-                            <span class="text-gray-700 font-medium">Standard Cement Mix</span>
-                            <span class="text-gray-400 text-sm">#SUP-001</span>
-                        </li>
-                        <li class="p-5 flex items-center justify-between hover:bg-gray-50">
-                            <span class="text-gray-700 font-medium">Reinforcement Iron Rods (12mm)</span>
-                            <span class="text-gray-400 text-sm">#SUP-042</span>
-                        </li>
-                        <li class="p-5 flex items-center justify-between hover:bg-gray-50">
-                            <span class="text-gray-700 font-medium">Granite Stones (3/4 Inch)</span>
-                            <span class="text-gray-400 text-sm">#SUP-098</span>
-                        </li>
-                        <li class="p-5 flex items-center justify-between hover:bg-gray-50">
-                            <span class="text-gray-700 font-medium">Hardwood Planks</span>
-                            <span class="text-gray-400 text-sm">#SUP-102</span>
-                        </li>
-                    </ul>
+
+                    <!-- Add Supply Form -->
+                    <div x-show="showForm" x-transition class="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                        <h3 class="text-lg font-bold mb-6 text-slate-800">Add New Supply</h3>
+                        <form @submit.prevent="createSupply()" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Supply Name *</label>
+                                    <input type="text" x-model="name" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Category *</label>
+                                    <select x-model="category" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                        <option value="">Select Category</option>
+                                        <template x-for="cat in categories" :key="cat">
+                                            <option :value="cat" x-text="cat"></option>
+                                        </template>
+                                        <option value="Cement">Cement</option>
+                                        <option value="Iron Rods">Iron Rods</option>
+                                        <option value="Granite">Granite</option>
+                                        <option value="Wood">Wood</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Unit *</label>
+                                    <select x-model="unit" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                        <option value="">Select Unit</option>
+                                        <option value="tons">Tons</option>
+                                        <option value="bags">Bags</option>
+                                        <option value="pieces">Pieces</option>
+                                        <option value="cubic meters">Cubic Meters</option>
+                                        <option value="liters">Liters</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Current Stock</label>
+                                    <input type="number" x-model="currentStock" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Minimum Stock</label>
+                                    <input type="number" x-model="minimumStock" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Unit Price (₦) *</label>
+                                    <input type="number" x-model="unitPrice" min="0" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Supplier</label>
+                                    <input type="text" x-model="supplier" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Location</label>
+                                    <input type="text" x-model="location" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Barcode</label>
+                                    <input type="text" x-model="barcode" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Description</label>
+                                <textarea x-model="description" rows="3" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
+                                <textarea x-model="notes" rows="2" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+                            
+                            <div class="flex gap-4">
+                                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition">
+                                    Add Supply
+                                </button>
+                                <button type="button" @click="showForm = false; resetForm()" class="bg-gray-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-600 transition">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters and Search -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <input type="text" x-model="search" placeholder="Search supplies..." class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div class="flex gap-4">
+                                <select x-model="categoryFilter" @change="loadSupplies()" class="p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="">All Categories</option>
+                                    <template x-for="cat in categories" :key="cat">
+                                        <option :value="cat" x-text="cat"></option>
+                                    </template>
+                                </select>
+                                <select x-model="statusFilter" @change="loadSupplies()" class="p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="discontinued">Discontinued</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Supplies Table -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Supply</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Stock</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Unit Price</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Total Value</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <template x-for="supply in filteredSupplies" :key="supply._id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900" x-text="supply.name"></div>
+                                                <div class="text-sm text-gray-500" x-text="supply.description"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="supply.category"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900" x-text="`${supply.currentStock} ${supply.unit}`"></div>
+                                                <div class="text-xs text-gray-500" x-text="`Min: ${supply.minimumStock} ${supply.unit}`"></div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600" x-text="'₦' + supply.unitPrice.toLocaleString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600" x-text="'₦' + supply.totalValue.toLocaleString()"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
+                                                      :class="getStockStatus(supply).color === 'red' ? 'bg-red-100 text-red-800' : getStockStatus(supply).color === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'"
+                                                      x-text="getStockStatus(supply).text"></span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <div class="flex gap-2">
+                                                    <button @click="updateStock(supply._id, 'add')" class="text-green-600 hover:text-green-900" title="Add Stock">
+                                                        <i class="fa-solid fa-plus"></i>
+                                                    </button>
+                                                    <button @click="updateStock(supply._id, 'subtract')" class="text-red-600 hover:text-red-900" title="Subtract Stock">
+                                                        <i class="fa-solid fa-minus"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div x-show="filteredSupplies.length === 0" class="p-8 text-center text-gray-500">
+                            <i class="fa-solid fa-boxes-stacked text-4xl mb-4 text-gray-300"></i>
+                            <p>No supplies found matching your criteria.</p>
+                        </div>
+                    </div>
                 </div>
             </template>
 
@@ -321,10 +935,11 @@
         </main>
     </div>
 
-</body>
-</html>
+    <script>
+        if (!localStorage.getItem('token')) {
+            window.location.href = 'login.html';
+        }
+    </script>
 
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+</body>
 </html>
