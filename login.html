@@ -6,11 +6,9 @@
     <title>Login Eleke Project</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="config.js"></script>
 </head>
 <body class="bg-slate-900 flex items-center justify-center min-h-screen p-4">
-    <!-- <div class="">
-        <h1>Manage users, transactions, and services in one place.</h1>
-    </div> -->
 
     <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 border border-slate-800">
         <div class="flex justify-center mb-6">
@@ -44,6 +42,8 @@
     </div>
 
     <script>
+        const apiBaseUrl = window.API_BASE_URL;
+        
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
@@ -52,7 +52,7 @@
             btn.disabled = true;
             btn.textContent = 'Signing In...';
             try {
-                const res = await fetch('http://localhost:5000/api/auth/login', {
+                const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
