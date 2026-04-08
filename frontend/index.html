@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Eleke Project</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Direct API configuration - point to your actual backend
+        const API_BASE_URL = 'https://gani-eleke-backend.onrender.com';
+        
+        console.log('API Base URL:', API_BASE_URL);
+    </script>
+</head>
+<body class="bg-slate-900 flex items-center justify-center min-h-screen p-4">
+
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 border border-slate-800">
+        <div class="flex justify-center mb-6">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg border-2 border-white/20">
+                <img src="img/image.jpg" alt="Company Logo" class="w-full h-full object-cover">
+            </div>
+        </div>
+
+        <h2 class="text-center text-3xl font-bold text-slate-800">Welcome Back</h2>
+        <p class="text-center text-slate-400 mb-8 uppercase text-xs tracking-widest font-semibold mt-2">Authorized Access Only</p>
+
+        <form id="loginForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Email Address</label>
+                <input type="email" id="email" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="admin@example.com">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Password</label>
+                <input type="password" id="password" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="••••••••">
+            </div>
+
+            <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all transform active:scale-95">
+                Sign In 
+            </button>
+        </form>
+
+        <div class="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+            &copy; 2026 Gani Eleke Ent
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.textContent = 'Signing In...';
+            try {
+                console.log('Attempting login to:', `${API_BASE_URL}/api/auth/login`);
+                const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('token', data.token);
+                    window.location.href = '/dashboard.html';
+                } else {
+                    alert(data.message || 'Login failed');
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                alert('Network error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
+        });
+    </script>
+
+</body>
+</html>
