@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://gani-eleke-backend.onrender.com/api/$1"
-    }
-  ]
-}
