@@ -8,7 +8,7 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // FIXED: Smart API configuration that correctly identifies local development
+        //Smart API configuration that correctly identifies local development
         const getApiBaseUrl = () => {
             // Get the current hostname and port
             const hostname = window.location.hostname;
@@ -18,7 +18,7 @@
             
             // Check if we're on localhost (including 127.0.0.1) with Live Server port 5500
             if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
-                return 'http://localhost:5000';  // Your backend port
+                return 'http://localhost:5000';  
             }
             
             // Check if we're on localhost with backend port
