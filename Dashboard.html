@@ -8,22 +8,45 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // Direct API configuration - no external config.js needed
-        const API_BASE_URL = (() => {
-            // For Vercel deployment (using proxy)
-            if (window.location.hostname.includes('vercel.app') || window.location.hostname !== 'localhost') {
-                return '';  // Empty string means use relative paths, Vercel proxy will handle
+        // FIXED: Smart API configuration that correctly identifies local development
+        const getApiBaseUrl = () => {
+            // Get the current hostname and port
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            
+            console.log('Current hostname:', hostname, 'port:', port);
+            
+            // Check if we're on localhost (including 127.0.0.1) with Live Server port 5500
+            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
+                return 'http://localhost:5000';  // Your backend port
             }
-            // Local development
-            return 'http://localhost:5000';
-        })();
+            
+            // Check if we're on localhost with backend port
+            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
+                return '';  // Same origin
+            }
+            
+            // Check for Vercel deployment
+            if (hostname.includes('vercel.app')) {
+                return '';  // Use relative path, Vercel proxy will handle
+            }
+            
+            // Default to Render backend
+            return 'https://gani-eleke-backend.onrender.com';
+        };
         
-        console.log('API Base URL:', API_BASE_URL || 'relative path (using proxy)');
+        const API_BASE_URL = getApiBaseUrl();
+        console.log('API Base URL:', API_BASE_URL || 'relative path (same origin)');
+        
+        // Helper function to get full API URL
+        const getApiUrl = (path) => {
+            const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api';
+            return `${basePath}${path}`;
+        };
     </script>
 </head>
 <body class="bg-gray-100 font-sans antialiased" x-data="{
     page: 'dashboard',
-    apiBaseUrl: API_BASE_URL,
     logout: () => { localStorage.removeItem('token'); window.location.href = 'index.html'; },
     summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRentSummary: { totalRentals: 0, activeRentals: 0, totalRevenue: 0, activeRevenue: 0 }, supplySummary: { totalSupplies: 0, activeSupplies: 0, lowStockItems: 0, outOfStockItems: 0, totalValue: 0 } },
     showClearReceiptsModal: false,
@@ -34,17 +57,16 @@
         if (!token) return;
         
         try {
-            // Fix: Remove /api from path since it's already in the proxy or base URL
-            const basePath = this.apiBaseUrl ? `${this.apiBaseUrl}/api` : '/api';
+            console.log('Loading summary from:', getApiUrl('/receipts/summary'));
             
             const [receiptRes, landRentRes, supplyRes] = await Promise.all([
-                fetch(`${basePath}/receipts/summary`, {
+                fetch(getApiUrl('/receipts/summary'), {
                     headers: { 'Authorization': 'Bearer ' + token }
                 }),
-                fetch(`${basePath}/landrents/summary`, {
+                fetch(getApiUrl('/landrents/summary'), {
                     headers: { 'Authorization': 'Bearer ' + token }
                 }),
-                fetch(`${basePath}/supplies/summary`, {
+                fetch(getApiUrl('/supplies/summary'), {
                     headers: { 'Authorization': 'Bearer ' + token }
                 })
             ]);
@@ -55,14 +77,20 @@
                 this.summary.totalCredit = receiptData.totalCreditAmount || 0;
                 this.summary.totalDebit = receiptData.totalDebitAmount || 0;
                 this.summary.totalBalance = receiptData.totalBalance || 0;
+            } else {
+                console.error('Receipt summary failed:', receiptRes.status);
             }
             
             if (landRentRes.ok) {
                 this.summary.landRentSummary = await landRentRes.json();
+            } else {
+                console.error('LandRent summary failed:', landRentRes.status);
             }
             
             if (supplyRes.ok) {
                 this.summary.supplySummary = await supplyRes.json();
+            } else {
+                console.error('Supply summary failed:', supplyRes.status);
             }
         } catch (err) {
             console.error('Failed to load summary', err);
@@ -72,36 +100,34 @@
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const basePath = this.apiBaseUrl ? `${this.apiBaseUrl}/api` : '/api';
-        
         try {
             let response;
             if (type === 'receipts') {
-                response = await fetch(`${basePath}/receipts/clear`, {
+                response = await fetch(getApiUrl('/receipts/clear'), {
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
             } else if (type === 'landrents') {
-                response = await fetch(`${basePath}/landrents/clear`, {
+                response = await fetch(getApiUrl('/landrents/clear'), {
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
             } else if (type === 'supplies') {
-                response = await fetch(`${basePath}/supplies/clear`, {
+                response = await fetch(getApiUrl('/supplies/clear'), {
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
             } else if (type === 'all') {
                 await Promise.all([
-                    fetch(`${basePath}/receipts/clear`, {
+                    fetch(getApiUrl('/receipts/clear'), {
                         method: 'DELETE',
                         headers: { 'Authorization': 'Bearer ' + token }
                     }),
-                    fetch(`${basePath}/landrents/clear`, {
+                    fetch(getApiUrl('/landrents/clear'), {
                         method: 'DELETE',
                         headers: { 'Authorization': 'Bearer ' + token }
                     }),
-                    fetch(`${basePath}/supplies/clear`, {
+                    fetch(getApiUrl('/supplies/clear'), {
                         method: 'DELETE',
                         headers: { 'Authorization': 'Bearer ' + token }
                     })
@@ -263,15 +289,12 @@
                     async init() {
                         await this.loadReceipts();
                     },
-                    getBasePath() {
-                        return API_BASE_URL ? `${API_BASE_URL}/api` : '/api';
-                    },
                     async loadReceipts() {
                         const token = localStorage.getItem('token');
                         if (!token) return;
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/receipts`, {
+                            const res = await fetch(getApiUrl('/receipts'), {
                                 headers: { 'Authorization': 'Bearer ' + token }
                             });
                             if (res.ok) {
@@ -304,7 +327,7 @@
                         };
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/receipts`, {
+                            const res = await fetch(getApiUrl('/receipts'), {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                                 body: JSON.stringify(data)
@@ -336,7 +359,7 @@
                         if (!token) return;
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/receipts/${this.currentReceipt._id}/pdf`, {
+                            const res = await fetch(getApiUrl(`/receipts/${this.currentReceipt._id}/pdf`), {
                                 headers: { 'Authorization': 'Bearer ' + token }
                             });
                             if (res.ok) {
@@ -482,7 +505,7 @@
                 </div>
             </template>
 
-            <!-- Land Rent Template (similar fix needed - add getBasePath method) -->
+            <!-- Land Rent Template -->
             <template x-if="page === 'landrent'">
                 <div class="space-y-6" x-data="{
                     landRents: [],
@@ -495,9 +518,6 @@
                     rentalRate: '',
                     notes: '',
                     showForm: true,
-                    getBasePath() {
-                        return API_BASE_URL ? `${API_BASE_URL}/api` : '/api';
-                    },
                     async init() {
                         await this.loadLandRents();
                     },
@@ -506,7 +526,7 @@
                         if (!token) return;
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/landrents`, {
+                            const res = await fetch(getApiUrl('/landrents'), {
                                 headers: { 'Authorization': 'Bearer ' + token }
                             });
                             if (res.ok) {
@@ -534,7 +554,7 @@
                         };
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/landrents`, {
+                            const res = await fetch(getApiUrl('/landrents'), {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                                 body: JSON.stringify(data)
@@ -672,7 +692,7 @@
                 </div>
             </template>
 
-            <!-- Supplies Template (similar fix needed) -->
+            <!-- Supplies Template -->
             <template x-if="page === 'supplies'">
                 <div class="space-y-6" x-data="{
                     supplies: [],
@@ -692,9 +712,6 @@
                     location: '',
                     barcode: '',
                     notes: '',
-                    getBasePath() {
-                        return API_BASE_URL ? `${API_BASE_URL}/api` : '/api';
-                    },
                     async init() {
                         await this.loadSupplies();
                         await this.loadCategories();
@@ -708,7 +725,7 @@
                             if (this.categoryFilter) params.append('category', this.categoryFilter);
                             if (this.statusFilter) params.append('status', this.statusFilter);
                             
-                            const res = await fetch(`${this.getBasePath()}/supplies?${params}`, {
+                            const res = await fetch(getApiUrl(`/supplies?${params}`), {
                                 headers: { 'Authorization': 'Bearer ' + token }
                             });
                             if (res.ok) {
@@ -725,7 +742,7 @@
                         if (!token) return;
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/supplies/categories`, {
+                            const res = await fetch(getApiUrl('/supplies/categories'), {
                                 headers: { 'Authorization': 'Bearer ' + token }
                             });
                             if (res.ok) {
@@ -754,7 +771,7 @@
                         };
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/supplies`, {
+                            const res = await fetch(getApiUrl('/supplies'), {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                                 body: JSON.stringify(data)
@@ -781,7 +798,7 @@
                         if (!token) return;
                         
                         try {
-                            const res = await fetch(`${this.getBasePath()}/supplies/${supplyId}/stock`, {
+                            const res = await fetch(getApiUrl(`/supplies/${supplyId}/stock`), {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                                 body: JSON.stringify({ quantity: parseFloat(quantity), operation })

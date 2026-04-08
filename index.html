@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // Use relative path - Vercel will proxy to your backend
-        const API_BASE_URL = '/api';
+        // Direct API configuration - point to your actual backend
+        const API_BASE_URL = 'https://gani-eleke-backend.onrender.com';
         
         console.log('API Base URL:', API_BASE_URL);
     </script>
@@ -55,12 +55,16 @@
             btn.disabled = true;
             btn.textContent = 'Signing In...';
             try {
-                console.log('Attempting login to:', `${API_BASE_URL}/auth/login`);
-                const res = await fetch(`${API_BASE_URL}/auth/login`, {
+                console.log('Attempting login to:', `${API_BASE_URL}/api/auth/login`);
+                const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify({ email, password })
                 });
+                
                 const data = await res.json();
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
@@ -70,7 +74,7 @@
                 }
             } catch (err) {
                 console.error('Login error:', err);
-                alert('Network error. Please check if backend is running.');
+                alert('Network error: ' + err.message);
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Sign In';
