@@ -46,8 +46,7 @@
         </div>
     </div>
 
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    <script>        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
@@ -68,11 +67,9 @@
                 const data = await res.json();
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
-                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    window.location.href = 'dashboard.html';
-} else {
-    window.location.href = '/frontend/dashboard.html';
-}
+                    const currentPath = window.location.pathname;
+                    const basePath = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                    window.location.href = basePath + '/dashboard.html';
                 } else {
                     alert(data.message || 'Login failed');
                 }
@@ -88,5 +85,6 @@
 
 </body>
 </html>
+
 
 
