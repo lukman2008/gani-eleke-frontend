@@ -68,7 +68,11 @@
                 const data = await res.json();
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
-                    window.location.href = '/dashboard.html';
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.location.href = 'dashboard.html';
+} else {
+    window.location.href = '/frontend/dashboard.html';
+}
                 } else {
                     alert(data.message || 'Login failed');
                 }
@@ -84,3 +88,5 @@
 
 </body>
 </html>
+
+
