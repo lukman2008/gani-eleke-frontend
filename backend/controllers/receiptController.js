@@ -1,117 +1,114 @@
 ﻿const PDFDocument = require('pdfkit');
 const Receipt = require('../models/Receipt');
 
+/* =========================
+   HELPER FUNCTIONS
+========================= */
+
+const formatCurrency = (amount) => {
+  return `NGN${Number(amount).toLocaleString()}`;
+};
+
+/* =========================
+   COMPUTATION LOGIC
+========================= */
+
 const computeReceipt = ({ customerName, credits = [], less = [], note }) => {
   const normalizedCredits = credits.map((item) => {
     const qty = Number(item.qty || 0);
     const rate = Number(item.rate || 0);
     const dust = Number(item.dust || 0);
-    const amount = (qty * rate) - dust;
+
+    const initialRate = Number(item.initialRate) || rate;
+    const initialAmount = qty * initialRate;
+    const finalAmount = (qty * rate) - dust;
+    const profit = finalAmount - initialAmount;
+
     return {
-      description: String(item.description || '').trim(),
+      description: item.description || '',
       qty,
       rate,
-      dust: dust || 0,
-      amount: Math.max(amount, 0),
-      initialRate: Number(item.initialRate) || rate,
-      profit: ((qty * rate) - dust) - (qty * (Number(item.initialRate) || rate))
+      dust,
+      initialRate,
+      amount: Math.max(finalAmount, 0),
+      profit
     };
   });
 
   const normalizedLess = less.map((item) => ({
-    description: String(item.description || '').trim(),
+    description: item.description || '',
     amount: Number(item.amount || 0),
-    date: item.date ? new Date(item.date) : new Date(),
   }));
 
-  const subTotal = normalizedCredits.reduce((sum, item) => sum + item.amount, 0);
-  const debitTotal = normalizedLess.reduce((sum, item) => sum + item.amount, 0);
-  const balance = Math.max(subTotal - debitTotal, 0);
+  const subTotal = normalizedCredits.reduce((sum, i) => sum + i.amount, 0);
+  const debitTotal = normalizedLess.reduce((sum, i) => sum + i.amount, 0);
+  const balance = subTotal - debitTotal;
 
   return {
-    customerName: String(customerName || '').trim(),
+    customerName,
     credits: normalizedCredits,
     less: normalizedLess,
     subTotal,
     debitTotal,
     balance,
-    note: note ? String(note).trim() : '',
+    note,
   };
 };
 
-const buildReceiptPreview = (receipt) => ({
-  receiptNumber: receipt.receiptNumber,
-  date: receipt.date,
-  receiptTitle: receipt.receiptTitle,
-  companyInfo: receipt.companyInfo,
-  vehicle: receipt.vehicle,
-  creditorName: receipt.creditorName,
-  creditorPhone: receipt.creditorPhone,
-  customerName: receipt.customerName,
-  credits: receipt.credits,
-  less: receipt.less,
-  subTotal: receipt.subTotal,
-  debitTotal: receipt.debitTotal,
-  balance: receipt.balance,
-  note: receipt.note,
-});
+/* =========================
+   CREATE RECEIPT
+========================= */
 
 const createReceipt = async (req, res) => {
-  const { companyInfo, receiptTitle, customerName, customerPhone, customerAddress, vehicle, creditorName, creditorPhone, credits, less, note, date } = req.body;
+  const { customerName, credits, less, note, ...rest } = req.body;
 
-  if (!customerName || !Array.isArray(credits) || credits.length === 0) {
-    return res.status(400).json({ message: 'Customer name and at least one credit item are required.' });
+  if (!customerName || !credits?.length) {
+    return res.status(400).json({ message: 'Customer name and credits required' });
   }
 
   const data = computeReceipt({ customerName, credits, less, note });
-  const receiptNumber = `RCPT-${Date.now()}`;
 
   const receipt = await Receipt.create({
-    receiptNumber,
-    date: date ? new Date(date) : new Date(),
-    receiptTitle: receiptTitle ? String(receiptTitle).trim() : 'Receipt',
-    companyInfo: companyInfo || {},
-    vehicle: vehicle ? String(vehicle).trim() : '',
-    customerAddress: customerAddress ? String(customerAddress).trim() : '',
-    creditorName: creditorName ? String(creditorName).trim() : '',
-    creditorPhone: creditorPhone ? String(creditorPhone).trim() : '',
-    customerPhone: customerPhone ? String(customerPhone).trim() : '',
+    ...rest,
     ...data,
-    createdBy: req.user._id,
+    receiptNumber: `RCPT-${Date.now()}`,
+    createdBy: req.user._id
   });
 
-  const receiptObject = receipt.toObject();
-  res.status(201).json({ ...receiptObject, preview: buildReceiptPreview(receiptObject) });
+  res.status(201).json(receipt);
 };
+
+/* =========================
+   GET ALL RECEIPTS
+========================= */
 
 const getReceipts = async (req, res) => {
-  const receipts = await Receipt.find()
-    .populate('createdBy', 'name email role')
-    .sort({ createdAt: -1 });
-
-  const receiptsWithPreview = receipts.map((receipt) => {
-    const receiptObject = receipt.toObject();
-    return { ...receiptObject, preview: buildReceiptPreview(receiptObject) };
-  });
-
-  res.json(receiptsWithPreview);
+  const receipts = await Receipt.find().populate('createdBy', 'name email role').sort({ createdAt: -1 });
+  res.json(receipts);
 };
+
+/* =========================
+   GET ONE RECEIPT
+========================= */
 
 const getReceiptById = async (req, res) => {
   const receipt = await Receipt.findById(req.params.id).populate('createdBy', 'name email role');
-  if (!receipt) {
-    return res.status(404).json({ message: 'Receipt not found.' });
-  }
-  const receiptObject = receipt.toObject();
-  res.json({ ...receiptObject, preview: buildReceiptPreview(receiptObject) });
+  if (!receipt) return res.status(404).json({ message: 'Not found' });
+  res.json(receipt);
 };
+
+/* =========================
+   UPDATE RECEIPT
+========================= */
 
 const updateReceipt = async (req, res) => {
   const receipt = await Receipt.findById(req.params.id);
   if (!receipt) {
     return res.status(404).json({ message: 'Receipt not found.' });
   }
+
   const { companyInfo, receiptTitle, customerName, customerPhone, customerAddress, vehicle, creditorName, creditorPhone, credits, less, note, date } = req.body;
+  
   const data = computeReceipt({
     customerName: customerName || receipt.customerName,
     credits: credits || receipt.credits,
@@ -119,26 +116,30 @@ const updateReceipt = async (req, res) => {
     note: note ?? receipt.note,
   });
 
-  receipt.date = date ? new Date(date) : receipt.date;
-  receipt.receiptTitle = receiptTitle ? String(receiptTitle).trim() : receipt.receiptTitle;
-  receipt.companyInfo = companyInfo || receipt.companyInfo;
-  receipt.vehicle = vehicle ? String(vehicle).trim() : receipt.vehicle;
-  receipt.customerAddress = customerAddress ? String(customerAddress).trim() : receipt.customerAddress;
-  receipt.creditorName = creditorName ? String(creditorName).trim() : receipt.creditorName;
-  receipt.creditorPhone = creditorPhone ? String(creditorPhone).trim() : receipt.creditorPhone;
-  receipt.customerName = data.customerName;
-  receipt.customerPhone = customerPhone ? String(customerPhone).trim() : receipt.customerPhone;
+  if (date) receipt.date = new Date(date);
+  if (receiptTitle) receipt.receiptTitle = receiptTitle;
+  if (companyInfo) receipt.companyInfo = companyInfo;
+  if (vehicle) receipt.vehicle = vehicle;
+  if (customerAddress) receipt.customerAddress = customerAddress;
+  if (creditorName) receipt.creditorName = creditorName;
+  if (creditorPhone) receipt.creditorPhone = creditorPhone;
+  if (customerName) receipt.customerName = data.customerName;
+  if (customerPhone) receipt.customerPhone = customerPhone;
+  
   receipt.credits = data.credits;
   receipt.less = data.less;
   receipt.subTotal = data.subTotal;
   receipt.debitTotal = data.debitTotal;
   receipt.balance = data.balance;
-  receipt.note = data.note;
+  if (note !== undefined) receipt.note = data.note;
 
   await receipt.save();
-  const receiptObject = receipt.toObject();
-  res.json({ ...receiptObject, preview: buildReceiptPreview(receiptObject) });
+  res.json(receipt);
 };
+
+/* =========================
+   DELETE RECEIPT
+========================= */
 
 const deleteReceipt = async (req, res) => {
   const receipt = await Receipt.findById(req.params.id);
@@ -149,330 +150,375 @@ const deleteReceipt = async (req, res) => {
   res.json({ message: 'Receipt deleted.' });
 };
 
+/* =========================
+   GET RECEIPT SUMMARY (for dashboard)
+========================= */
+
 const getReceiptSummary = async (req, res) => {
   const receipts = await Receipt.find();
   const totalReceipts = receipts.length;
-  const totalCreditAmount = receipts.reduce((sum, receipt) => sum + receipt.subTotal, 0);
-  const totalDebitAmount = receipts.reduce((sum, receipt) => sum + receipt.debitTotal, 0);
-  const totalBalance = receipts.reduce((sum, receipt) => sum + receipt.balance, 0);
-  res.json({ totalReceipts, totalCreditAmount, totalDebitAmount, totalBalance });
+  const totalCreditAmount = receipts.reduce((sum, receipt) => sum + (receipt.subTotal || 0), 0);
+  const totalDebitAmount = receipts.reduce((sum, receipt) => sum + (receipt.debitTotal || 0), 0);
+  const totalBalance = receipts.reduce((sum, receipt) => sum + (receipt.balance || 0), 0);
+  
+  res.json({
+    totalReceipts,
+    totalCreditAmount,
+    totalDebitAmount,
+    totalBalance,
+  });
 };
+
+/* =========================
+   CLEAR ALL RECEIPTS (admin only)
+========================= */
 
 const clearReceipts = async (req, res) => {
   await Receipt.deleteMany({});
   res.json({ message: 'All receipts and balances have been cleared.' });
 };
 
-const formatCurrency = (amount) => {
-  return `NGN${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/* =========================
+   HEADER DESIGN (UPDATED with subtitle)
+========================= */
+
+const drawHeader = (doc) => {
+  // Top bars
+  doc.rect(0, 0, 250, 10).fill('#E53935');
+  doc.rect(250, 0, 350, 10).fill('#1E3A8A');
+
+  // Logo / Company Name
+  doc.fillColor('#1E3A8A')
+    .fontSize(22)
+    .font('Helvetica-Bold')
+    .text('GANI ELEKE', 50, 40);
+
+  doc.fontSize(10)
+    .fillColor('#555')
+    .text('ENTERPRISES', 50, 65);
+  
+  // Subtitle line - Dealers and suppliers text
+  doc.fontSize(8)
+    .fillColor('#777')
+    .text('Dealers and suppliers of all kinds of electric motors, pumps,', 50, 80)
+    .text('generators, industrial machines, and building materials.', 50, 92);
+
+  // Right side - RECEIPT
+  doc.fontSize(24)
+    .fillColor('#000')
+    .text('RECEIPT', 350, 40);
+
+  // Office details
+  doc.fontSize(9)
+    .fillColor('#555')
+    .text('Office Address:', 350, 85)
+    .text('Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.', 350, 100)
+    .text('Telephone:', 350, 120)
+    .text('08033281397, 08052944592, 08062514308', 350, 135)
+    .text('E-mail:', 350, 155)
+    .text('ganiolaiya123@gmail.com', 350, 170);
 };
 
-const formatNumber = (num) => {
-  return num.toLocaleString('en-US');
+/* =========================
+   DRAW TABLE ROW HELPER
+========================= */
+
+const drawTableRow = (doc, y, columns, isEven) => {
+  if (isEven) {
+    doc.rect(50, y, 500, 20).fill('#f5f5f5');
+  }
+  return y;
 };
 
-// COMPANY COPY PDF - Exactly like first image
+/* =========================
+   COMPANY PDF
+========================= */
+
 const getReceiptPdfCompany = async (receipt, res) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 50, layout: 'portrait' });
+  const doc = new PDFDocument({ margin: 40 });
   doc.pipe(res);
 
-  let y = 50;
-  const leftX = 50;
-  const rightX = 350;
-  const fullWidth = 515;
+  drawHeader(doc);
 
-  // ============ HEADER SECTION ============
-  // Company Name
-  doc.fontSize(18).font('Helvetica-Bold').fillColor('#000000');
-  doc.text('GANI ELEKE ENT', leftX, y, { align: 'center', width: fullWidth });
-  y += 25;
-  
-  // Address
-  doc.fontSize(9).font('Helvetica').fillColor('#333333');
-  doc.text('Office Address:', leftX, y);
-  doc.text('Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.', leftX + 70, y);
-  y += 15;
-  
-  // Telephone
-  doc.text('Telephone:', leftX, y);
-  doc.text('08033281397, 08052944592, 08062514308', leftX + 70, y);
-  y += 15;
-  
-  // Email
-  doc.text('E-mail:', leftX, y);
-  doc.text('ganiolaiya123@gmail.com', leftX + 70, y);
+  let y = 230;
+
+  doc.text(`Company: ${receipt.companyInfo?.name || ''}`, 50, y);
   y += 20;
-  
-  // Company line
-  doc.text(`Company: ${receipt.companyInfo?.name || 'Africa Steel Ltd'}`, leftX, y);
-  y += 25;
-  
-  // Divider line
-  doc.moveTo(leftX, y).lineTo(leftX + fullWidth, y).stroke();
-  y += 15;
-  
-  // ============ CUSTOMER INFO SECTION ============
-  doc.fontSize(10).font('Helvetica-Bold');
-  doc.text('TO', leftX, y);
-  doc.text('ADDRESS', leftX + 150, y);
-  doc.text('TEL:', leftX + 300, y);
-  doc.text('VEHICLE NO.', leftX + 400, y);
-  y += 18;
-  
-  doc.fontSize(10).font('Helvetica');
-  doc.text(receipt.customerName || '', leftX, y);
-  doc.text(receipt.customerAddress || '', leftX + 150, y);
-  doc.text(receipt.customerPhone || '', leftX + 300, y);
-  doc.text(receipt.vehicle || '', leftX + 400, y);
-  y += 25;
-  
-  // ============ TABLE HEADERS ============
-  // Draw table header background
-  doc.rect(leftX, y, fullWidth, 22).fill('#f0f0f0');
-  doc.fillColor('#000000').fontSize(9).font('Helvetica-Bold');
-  
-  const col1 = leftX + 5;
-  const col2 = leftX + 130;
-  const col3 = leftX + 180;
-  const col4 = leftX + 230;
-  const col5 = leftX + 285;
-  const col6 = leftX + 340;
-  const col7 = leftX + 420;
-  
-  doc.text('ITEMS DETAILS', col1, y + 7);
-  doc.text('DUST', col2, y + 7);
-  doc.text('QTY', col3, y + 7);
-  doc.text('I-RATE', col4, y + 7);
-  doc.text('F-RATE', col5, y + 7);
-  doc.text('I-AMOUNT #', col6, y + 7);
-  doc.text('F-AMOUNT #', col7, y + 7);
-  y += 22;
-  
-  // ============ TABLE ROWS ============
-  let totalInitialAmount = 0;
-  let totalFinalAmount = 0;
-  const profits = [];
-  
-  receipt.credits.forEach((item, idx) => {
-    const initialAmount = item.qty * (item.initialRate || item.rate);
-    const finalAmount = (item.qty * item.rate) - (item.dust || 0);
-    const profit = finalAmount - initialAmount;
-    
-    totalInitialAmount += initialAmount;
-    totalFinalAmount += finalAmount;
-    if (profit > 0) profits.push({ name: item.description, profit });
-    
-    // Alternate row background
-    if (idx % 2 === 1) {
-      doc.rect(leftX, y, fullWidth, 20).fill('#fafafa');
+
+  // TO
+  doc.rect(50, y, 500, 50).stroke('#1E3A8A');
+  doc.text('TO', 55, y + 5);
+  doc.text(receipt.customerName, 55, y + 20);
+
+  y += 50;
+
+  // ADDRESS
+  doc.rect(50, y, 500, 50).stroke('#1E3A8A');
+  doc.text('ADDRESS', 55, y + 5);
+  doc.text(receipt.customerAddress, 55, y + 20);
+
+  y += 70;
+
+  doc.text(`TEL: ${receipt.customerPhone}`, 50, y);
+  doc.text(`VEHICLE NO: ${receipt.vehicle}`, 300, y);
+
+  y += 30;
+
+  // ============ ITEMS TABLE ============
+  // Table Header
+  doc.rect(50, y, 500, 20).fill('#1E3A8A');
+  doc.fillColor('#fff');
+  doc.text('ITEMS DETAILS', 55, y + 5);
+  doc.text('DUST', 150, y + 5);
+  doc.text('QTY', 200, y + 5);
+  doc.text('I-RATE', 240, y + 5);
+  doc.text('F-RATE', 290, y + 5);
+  doc.text('I-AMOUNT', 340, y + 5);
+  doc.text('F-AMOUNT', 430, y + 5);
+  y += 20;
+
+  let totalProfit = 0;
+
+  receipt.credits.forEach((item, i) => {
+    if (i % 2 === 1) {
+      doc.rect(50, y, 500, 20).fill('#f5f5f5');
     }
-    
-    doc.fillColor('#000000').fontSize(9).font('Helvetica');
-    doc.text(item.description, col1, y + 5);
-    doc.text(`${item.dust || 0}KG`, col2, y + 5);
-    doc.text(item.qty.toString(), col3, y + 5);
-    doc.text((item.initialRate || item.rate).toString(), col4, y + 5);
-    doc.text(item.rate.toString(), col5, y + 5);
-    doc.text(formatNumber(initialAmount), col6, y + 5);
-    doc.text(formatNumber(finalAmount), col7, y + 5);
-    
+
+    doc.fillColor('#000');
+
+    const initial = item.qty * (item.initialRate || item.rate);
+    const final = (item.qty * item.rate) - (item.dust || 0);
+    const profit = final - initial;
+    totalProfit += profit;
+
+    doc.text(item.description, 55, y + 5);
+    doc.text(item.dust + 'KG', 150, y + 5);
+    doc.text(item.qty.toString(), 200, y + 5);
+    doc.text((item.initialRate || item.rate).toString(), 240, y + 5);
+    doc.text(item.rate.toString(), 290, y + 5);
+    doc.text(initial.toLocaleString(), 340, y + 5);
+    doc.text(final.toLocaleString(), 430, y + 5);
+
     y += 20;
   });
-  
-  y += 5;
-  
-  // ============ DESCRIPTIONS SECTION ============
-  doc.fontSize(9).font('Helvetica-Bold');
-  doc.text('Descriptions', leftX, y);
-  y += 18;
-  
-  if (receipt.less.length > 0) {
-    doc.font('Helvetica');
-    receipt.less.forEach((item) => {
-      doc.text(`${item.description}`, leftX, y);
-      doc.text(formatCurrency(item.amount), rightX, y);
-      y += 15;
+
+  y += 10;
+
+  // ============ DEDUCTIONS TABLE (Styled like Items Table) ============
+  if (receipt.less && receipt.less.length > 0) {
+    // Deductions Table Header
+    doc.rect(50, y, 500, 20).fill('#1E3A8A');
+    doc.fillColor('#fff');
+    doc.text('DESCRIPTIONS', 55, y + 5);
+    doc.text('AMOUNT (₦)', 450, y + 5);
+    y += 20;
+
+    receipt.less.forEach((item, i) => {
+      if (i % 2 === 1) {
+        doc.rect(50, y, 500, 20).fill('#f5f5f5');
+      }
+      doc.fillColor('#000');
+      doc.text(item.description, 55, y + 5);
+      doc.text(item.amount.toLocaleString(), 450, y + 5);
+      y += 20;
     });
-  }
-  
-  doc.text('Debt', leftX, y);
-  y += 20;
-  
-  // ============ PROFIT SECTION (Company Only) ============
-  if (profits.length > 0) {
-    doc.fontSize(9).font('Helvetica');
-    profits.forEach(p => {
-      doc.text(`${p.name} Profit: ${formatCurrency(p.profit)}`, leftX, y);
-      y += 15;
-    });
-    const totalProfit = profits.reduce((sum, p) => sum + p.profit, 0);
-    doc.text(`Profit: ${formatCurrency(totalProfit)}`, leftX, y);
+  } else {
+    // Show Offloading row even if empty
+    doc.rect(50, y, 500, 20).fill('#1E3A8A');
+    doc.fillColor('#fff');
+    doc.text('DESCRIPTIONS', 55, y + 5);
+    doc.text('AMOUNT (₦)', 450, y + 5);
+    y += 20;
+    
+    doc.rect(50, y, 500, 20).fill('#f5f5f5');
+    doc.fillColor('#000');
+    doc.text('Offloading', 55, y + 5);
+    doc.text('0', 450, y + 5);
     y += 20;
   }
-  
-  // ============ TOTALS SECTION ============
-  doc.text(`Credit: ${formatCurrency(totalFinalAmount)}`, leftX, y);
+
+  y += 10;
+
+  // Debt row (standalone)
+  doc.fillColor('#000').fontSize(9).font('Helvetica');
+  doc.text('Debt', 55, y);
+  y += 20;
+
+  // Profit Section
+  doc.text(`Profit: ${formatCurrency(totalProfit)}`, 50, y);
+  y += 20;
+
+  // Totals
+  doc.text(`Credit: ${formatCurrency(receipt.subTotal)}`, 50, y);
   y += 15;
-  doc.text(`Debit: ${formatCurrency(receipt.debitTotal)}`, leftX, y);
+  doc.text(`Debit: ${formatCurrency(receipt.debitTotal)}`, 50, y);
   y += 15;
-  doc.text(`Balance: ${formatCurrency(receipt.balance)}`, leftX, y);
-  y += 30;
-  
-  // ============ FOOTER ============
-  doc.fontSize(9).font('Helvetica');
-  doc.text('Thank you for doing business with us.', leftX, y, { align: 'center', width: fullWidth });
-  
+
+  doc.fillColor('#1E3A8A')
+    .fontSize(12)
+    .text(`Balance: ${formatCurrency(receipt.balance)}`, 50, y);
+
+  doc.moveTo(50, y + 15).lineTo(250, y + 15).stroke('#E53935');
+
+  y += 40;
+
+  doc.fillColor('#000').text('Thank you for doing business with us.', 150, y);
+
   doc.end();
 };
 
-// CUSTOMER COPY PDF - Exactly like second image
+/* =========================
+   CUSTOMER PDF (UPDATED with styled Offloading table)
+========================= */
+
 const getReceiptPdfCustomer = async (receipt, res) => {
-  const doc = new PDFDocument({ size: 'A4', margin: 50, layout: 'portrait' });
+  const doc = new PDFDocument({ margin: 40 });
   doc.pipe(res);
 
-  let y = 50;
-  const leftX = 50;
-  const rightX = 350;
-  const fullWidth = 515;
+  drawHeader(doc);
 
-  // ============ HEADER SECTION ============
-  doc.fontSize(18).font('Helvetica-Bold').fillColor('#000000');
-  doc.text('GANI ELEKE ENT', leftX, y, { align: 'center', width: fullWidth });
-  y += 25;
-  
-  doc.fontSize(9).font('Helvetica').fillColor('#333333');
-  doc.text('Office Address:', leftX, y);
-  doc.text('Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.', leftX + 70, y);
-  y += 15;
-  
-  doc.text('Telephone:', leftX, y);
-  doc.text('08033281397, 08052944592, 08062514308', leftX + 70, y);
-  y += 15;
-  
-  doc.text('E-mail:', leftX, y);
-  doc.text('ganiolaiya123@gmail.com', leftX + 70, y);
+  let y = 230;
+
+  doc.text(`Company: ${receipt.companyInfo?.name || ''}`, 50, y);
   y += 20;
-  
-  doc.text(`Company: ${receipt.companyInfo?.name || 'Africa Steel Ltd'}`, leftX, y);
-  y += 25;
-  
-  doc.moveTo(leftX, y).lineTo(leftX + fullWidth, y).stroke();
-  y += 15;
-  
-  // ============ CUSTOMER INFO SECTION ============
-  doc.fontSize(10).font('Helvetica-Bold');
-  doc.text('TO', leftX, y);
-  doc.text('ADDRESS', leftX + 150, y);
-  doc.text('TEL:', leftX + 300, y);
-  doc.text('VEHICLE NO.', leftX + 400, y);
-  y += 18;
-  
-  doc.fontSize(10).font('Helvetica');
-  doc.text(receipt.customerName || '', leftX, y);
-  doc.text(receipt.customerAddress || '', leftX + 150, y);
-  doc.text(receipt.customerPhone || '', leftX + 300, y);
-  doc.text(receipt.vehicle || '', leftX + 400, y);
-  y += 25;
-  
-  // ============ TABLE HEADERS (Customer - Simpler) ============
-  doc.rect(leftX, y, fullWidth, 22).fill('#f0f0f0');
-  doc.fillColor('#000000').fontSize(9).font('Helvetica-Bold');
-  
-  const col1 = leftX + 5;
-  const col2 = leftX + 130;
-  const col3 = leftX + 180;
-  const col4 = leftX + 230;
-  const col5 = leftX + 340;
-  
-  doc.text('ITEMS DETAILS', col1, y + 7);
-  doc.text('DUST', col2, y + 7);
-  doc.text('QTY', col3, y + 7);
-  doc.text('RATE', col4, y + 7);
-  doc.text('AMOUNT ₦', col5, y + 7);
-  y += 22;
-  
-  // ============ TABLE ROWS ============
-  let totalAmount = 0;
-  
-  receipt.credits.forEach((item, idx) => {
-    const amount = (item.qty * item.rate) - (item.dust || 0);
-    totalAmount += amount;
-    
-    if (idx % 2 === 1) {
-      doc.rect(leftX, y, fullWidth, 20).fill('#fafafa');
+
+  // TO
+  doc.rect(50, y, 500, 50).stroke('#1E3A8A');
+  doc.text('TO', 55, y + 5);
+  doc.text(receipt.customerName, 55, y + 20);
+
+  y += 50;
+
+  // ADDRESS
+  doc.rect(50, y, 500, 50).stroke('#1E3A8A');
+  doc.text('ADDRESS', 55, y + 5);
+  doc.text(receipt.customerAddress, 55, y + 20);
+
+  y += 70;
+
+  doc.text(`TEL: ${receipt.customerPhone}`, 50, y);
+  doc.text(`VEHICLE NO: ${receipt.vehicle}`, 300, y);
+
+  y += 30;
+
+  // ============ ITEMS TABLE ============
+  doc.rect(50, y, 500, 20).fill('#1E3A8A');
+  doc.fillColor('#fff');
+  doc.text('ITEMS DETAILS', 55, y + 5);
+  doc.text('DUST', 150, y + 5);
+  doc.text('QTY', 200, y + 5);
+  doc.text('RATE', 260, y + 5);
+  doc.text('AMOUNT ₦', 400, y + 5);
+  y += 20;
+
+  receipt.credits.forEach((item, i) => {
+    if (i % 2 === 1) {
+      doc.rect(50, y, 500, 20).fill('#f5f5f5');
     }
-    
-    doc.fillColor('#000000').fontSize(9).font('Helvetica');
-    doc.text(item.description, col1, y + 5);
-    doc.text(`${item.dust || 0}KG`, col2, y + 5);
-    doc.text(item.qty.toString(), col3, y + 5);
-    doc.text(item.rate.toString(), col4, y + 5);
-    doc.text(formatNumber(amount), col5, y + 5);
-    
+
+    const amount = (item.qty * item.rate) - (item.dust || 0);
+
+    doc.fillColor('#000');
+    doc.text(item.description, 55, y + 5);
+    doc.text(item.dust + 'KG', 150, y + 5);
+    doc.text(item.qty.toString(), 200, y + 5);
+    doc.text(item.rate.toString(), 260, y + 5);
+    doc.text(amount.toLocaleString(), 400, y + 5);
+
     y += 20;
   });
-  
-  y += 5;
-  
-  // ============ DESCRIPTIONS SECTION ============
-  doc.fontSize(9).font('Helvetica-Bold');
-  doc.text('Descriptions', leftX, y);
-  doc.text('Amount ₦', rightX, y);
-  y += 18;
-  
-  if (receipt.less.length > 0) {
-    doc.font('Helvetica');
-    receipt.less.forEach((item) => {
-      doc.text(item.description, leftX, y);
-      doc.text(formatNumber(item.amount), rightX, y);
-      y += 15;
+
+  y += 10;
+
+  // ============ DEDUCTIONS TABLE (Styled like Items Table) ============
+  if (receipt.less && receipt.less.length > 0) {
+    // Deductions Table Header
+    doc.rect(50, y, 500, 20).fill('#1E3A8A');
+    doc.fillColor('#fff');
+    doc.text('DESCRIPTIONS', 55, y + 5);
+    doc.text('AMOUNT (₦)', 450, y + 5);
+    y += 20;
+
+    receipt.less.forEach((item, i) => {
+      if (i % 2 === 1) {
+        doc.rect(50, y, 500, 20).fill('#f5f5f5');
+      }
+      doc.fillColor('#000');
+      doc.text(item.description, 55, y + 5);
+      doc.text(item.amount.toLocaleString(), 450, y + 5);
+      y += 20;
     });
+  } else {
+    // Show Offloading row even if empty
+    doc.rect(50, y, 500, 20).fill('#1E3A8A');
+    doc.fillColor('#fff');
+    doc.text('DESCRIPTIONS', 55, y + 5);
+    doc.text('AMOUNT (₦)', 450, y + 5);
+    y += 20;
+    
+    doc.rect(50, y, 500, 20).fill('#f5f5f5');
+    doc.fillColor('#000');
+    doc.text('Offloading', 55, y + 5);
+    doc.text('0', 450, y + 5);
+    y += 20;
   }
-  
-  doc.text('Debt', leftX, y);
-  y += 20;
-  
-  // ============ TOTALS SECTION ============
-  doc.text(`Credit: ${formatCurrency(totalAmount)}`, leftX, y);
+
+  y += 10;
+
+  // Debt row
+  doc.fillColor('#000').fontSize(9).font('Helvetica');
+  doc.text('Debt', 55, y);
+  y += 25;
+
+  // Totals
+  doc.text(`Credit: ${formatCurrency(receipt.subTotal)}`, 50, y);
   y += 15;
-  doc.text(`Debit: ${formatCurrency(receipt.debitTotal)}`, leftX, y);
+  doc.text(`Debit: ${formatCurrency(receipt.debitTotal)}`, 50, y);
   y += 15;
-  doc.text(`Balance: ${formatCurrency(receipt.balance)}`, leftX, y);
-  y += 30;
-  
-  // ============ FOOTER ============
-  doc.fontSize(9).font('Helvetica');
-  doc.text('Thank you for doing business with us.', leftX, y, { align: 'center', width: fullWidth });
-  
+
+  doc.fillColor('#1E3A8A')
+    .fontSize(12)
+    .text(`Balance: ${formatCurrency(receipt.balance)}`, 50, y);
+
+  doc.moveTo(50, y + 15).lineTo(250, y + 15).stroke('#E53935');
+
+  y += 40;
+
+  doc.fillColor('#000').text('Thank you for doing business with us.', 150, y);
+
   doc.end();
 };
 
-// Main PDF handler
+/* =========================
+   MAIN PDF ROUTE
+========================= */
+
 const getReceiptPdf = async (req, res) => {
   const receipt = await Receipt.findById(req.params.id);
-  if (!receipt) {
-    return res.status(404).json({ message: 'Receipt not found.' });
-  }
+  if (!receipt) return res.status(404).json({ message: 'Not found' });
 
   const { type } = req.query;
-  
+
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}-${type || 'receipt'}.pdf"`);
 
   if (type === 'customer') {
-    await getReceiptPdfCustomer(receipt, res);
-  } else {
-    await getReceiptPdfCompany(receipt, res);
+    return getReceiptPdfCustomer(receipt, res);
   }
+
+  return getReceiptPdfCompany(receipt, res);
 };
 
-module.exports = { 
-  createReceipt, 
-  getReceipts, 
-  getReceiptById, 
-  updateReceipt, 
-  deleteReceipt, 
-  getReceiptSummary, 
-  clearReceipts, 
-  getReceiptPdf 
+/* =========================
+   EXPORTS - ALL FUNCTIONS
+========================= */
+
+module.exports = {
+  createReceipt,
+  getReceipts,
+  getReceiptById,
+  updateReceipt,
+  deleteReceipt,
+  getReceiptSummary,
+  clearReceipts,
+  getReceiptPdf
 };
