@@ -16,6 +16,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.0",
     "express": "^5.2.1",
+    "handlebars": "^4.7.9",
+    "html-pdf-node": "^1.0.8",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.1",
     "mongoose": "^9.4.1",

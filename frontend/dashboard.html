@@ -8,183 +8,67 @@
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Mobile responsiveness improvements */
         @media (max-width: 768px) {
-            .sidebar-collapsed {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-                position: fixed;
-                z-index: 50;
-                height: 100%;
-            }
-            .sidebar-open {
-                transform: translateX(0);
-            }
-            .main-content {
-                width: 100%;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .table-container {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .card-padding {
-                padding: 1rem;
-            }
-            .text-responsive {
-                font-size: 0.875rem;
-            }
+            .sidebar-collapsed { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 50; height: 100%; }
+            .sidebar-open { transform: translateX(0); }
+            .main-content { width: 100%; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .card-padding { padding: 1rem; }
+            .text-responsive { font-size: 0.875rem; }
         }
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        /* Better touch targets on mobile */
-        button, a, [role="button"] {
-            min-height: 44px;
-        }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
+        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
+        button, a, [role="button"] { min-height: 44px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
     <script>
-        // Smart API configuration
         const getApiBaseUrl = () => {
             const hostname = window.location.hostname;
             const port = window.location.port;
-            
             console.log('Current hostname:', hostname, 'port:', port);
-            
-            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
-                return 'http://localhost:5000';  
-            }
-            
-            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
-                return '';
-            }
-            
-            if (hostname.includes('vercel.app')) {
-                return '';
-            }
-            
+            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') return 'http://localhost:5000';
+            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') return '';
+            if (hostname.includes('vercel.app')) return '';
             return 'https://gani-eleke-backend.onrender.com';
         };
-        
         const API_BASE_URL = getApiBaseUrl();
         console.log('API Base URL:', API_BASE_URL || 'relative path');
-        
-        const getApiUrl = (path) => {
-            const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api';
-            return `${basePath}${path}`;
-        };
+        const getApiUrl = (path) => { const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'; return `${basePath}${path}`; };
     </script>
 </head>
 <body class="bg-gray-100 font-sans antialiased" x-data="{
     page: 'dashboard',
     mobileMenuOpen: false,
-    
-    // Common data
     token: localStorage.getItem('token'),
     
     // Dashboard summary
-    summary: { 
-        totalReceipts: 0, 
-        totalCredit: 0, 
-        totalDebit: 0, 
-        totalBalance: 0, 
-        landRentSummary: { totalRentals: 0, activeRentals: 0, totalRevenue: 0, activeRevenue: 0 }, 
-        supplySummary: { totalSupplies: 0, activeSupplies: 0, lowStockItems: 0, outOfStockItems: 0, totalValue: 0 } 
-    },
+    summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRevenueThisWeek: 0, totalLandRevenue: 0, agentRevenue: 0, agentRevenueThisWeek: 0, totalAgentRevenue: 0 },
     
     // Receipt data
-    receipts: [],
-    search: '',
-    showModal: false,
-    currentReceipt: null,
-    customerName: '',
-    customerPhone: '',
-    customerAddress: '',
-    vehicleNo: '',
-    expenses: '',
-    debtAmount: '',
+    receipts: [], search: '', showModal: false, currentReceipt: null,
+    customerName: '', customerPhone: '', customerAddress: '', vehicleNo: '', expenses: '', debtAmount: '',
     items: [{ description: '', quantity: '', dust: '', rate: '' }],
     
     // Land Rent data
-    landRents: [],
-    landCustomerName: '',
-    landCustomerPhone: '',
-    truckType: '',
-    startDate: '',
-    duration: '',
-    plotNumber: '',
-    rentalRate: '',
-    landNotes: '',
-    showLandForm: true,
+    landRents: [], landCustomerName: '', landCustomerPhone: '', truckType: '', material: '', amount: '', status: 'pending', landNotes: '',
     
-    // Supplies data (commented out - hidden from UI but code remains)
-    supplies: [],
-    categories: [],
-    showSupplyForm: false,
-    supplySearch: '',
-    categoryFilter: '',
-    statusFilter: '',
-    supplyName: '',
-    supplyDescription: '',
-    supplyCategory: '',
-    supplyUnit: '',
-    currentStock: '',
-    minimumStock: '',
-    unitPrice: '',
-    supplier: '',
-    location: '',
-    barcode: '',
-    supplyNotes: '',
+    // Settings
+    showClearReceiptsModal: false, showClearAllModal: false, clearingType: null,
     
-    // Settings - Danger Zone
-    showClearReceiptsModal: false,
-    showClearAllModal: false,
-    clearingType: null,
+    toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
+    logout() { localStorage.removeItem('token'); window.location.href = 'index.html'; },
     
-    // Toggle mobile menu
-    toggleMobileMenu() {
-        this.mobileMenuOpen = !this.mobileMenuOpen;
-    },
-    
-    // ============ COMMON FUNCTIONS ============
-    logout() {
-        localStorage.removeItem('token');
-        window.location.href = 'index.html';
-    },
-    
-    // ============ DASHBOARD FUNCTIONS ============
+    // Dashboard Functions
     async loadSummary() {
         if (!this.token) return;
-        
         try {
             const [receiptRes, landRentRes] = await Promise.all([
                 fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
                 fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
             ]);
-            
             if (receiptRes.ok) {
                 const receiptData = await receiptRes.json();
                 this.summary.totalReceipts = receiptData.totalReceipts || 0;
@@ -192,137 +76,53 @@
                 this.summary.totalDebit = receiptData.totalDebitAmount || 0;
                 this.summary.totalBalance = receiptData.totalBalance || 0;
             }
-            
             if (landRentRes.ok) {
-                this.summary.landRentSummary = await landRentRes.json();
+                const landData = await landRentRes.json();
+                this.summary.totalLandRevenue = landData.totalRevenue || 0;
+                this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
+                this.summary.totalAgentRevenue = landData.totalAgentRevenue || 0;
+                this.summary.agentRevenue = landData.agentRevenue || 0;
+                this.summary.agentRevenueThisWeek = landData.agentWeeklyRevenue || 0;
             }
-        } catch (err) {
-            console.error('Failed to load summary', err);
-        }
+        } catch (err) { console.error('Failed to load summary', err); }
     },
     
-    // ============ RECEIPT FUNCTIONS ============
-    addItem() {
-        this.items.push({ description: '', quantity: '', dust: '', rate: '' });
-    },
-    
-    removeItem(index) {
-        if (this.items.length > 1) {
-            this.items.splice(index, 1);
-        }
-    },
-    
+    // Receipt Functions
+    addItem() { this.items.push({ description: '', quantity: '', dust: '', rate: '' }); },
+    removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); },
     get totalPayment() {
         let total = 0;
-        for (let item of this.items) {
-            if (item.quantity && item.rate) {
-                const itemTotal = (parseFloat(item.quantity) * parseFloat(item.rate)) - (parseFloat(item.dust) || 0);
-                total += itemTotal;
-            }
-        }
+        for (let item of this.items) if (item.quantity && item.rate) total += (parseFloat(item.quantity) * parseFloat(item.rate)) - (parseFloat(item.dust) || 0);
         const expensesDebit = parseFloat(this.expenses) || 0;
         const debt = parseFloat(this.debtAmount) || 0;
         return Math.max(total - expensesDebit - debt, 0);
     },
-    
-    get filteredReceipts() {
-        return this.receipts.filter(r => 
-            r.customerName?.toLowerCase().includes(this.search.toLowerCase()) ||
-            r.receiptNumber?.toLowerCase().includes(this.search.toLowerCase())
-        );
-    },
-    
-    async loadReceipts() {
-        if (!this.token) return;
-        
-        try {
-            const res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                this.receipts = await res.json();
-            }
-        } catch (err) {
-            console.error('Failed to load receipts', err);
-        }
-    },
-    
+    get filteredReceipts() { return this.receipts.filter(r => r.customerName?.toLowerCase().includes(this.search.toLowerCase()) || r.receiptNumber?.toLowerCase().includes(this.search.toLowerCase())); },
+    async loadReceipts() { if (!this.token) return; try { const res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.receipts = await res.json(); } catch (err) { console.error('Failed to load receipts', err); } },
     async createReceipt() {
         if (!this.token) return;
-        
         const credits = [];
-        for (let item of this.items) {
-            if (item.description && item.quantity && item.rate) {
-                credits.push({
-                    description: item.description,
-                    qty: parseFloat(item.quantity),
-                    dust: parseFloat(item.dust) || 0,
-                    rate: parseFloat(item.rate)
-                });
-            }
-        }
-        
-        if (credits.length === 0) {
-            alert('Please add at least one item');
-            return;
-        }
-        
+        for (let item of this.items) if (item.description && item.quantity && item.rate) credits.push({ description: item.description, qty: parseFloat(item.quantity), dust: parseFloat(item.dust) || 0, rate: parseFloat(item.rate) });
+        if (credits.length === 0) { alert('Please add at least one item'); return; }
         const less = [];
-        if (this.expenses && parseFloat(this.expenses) > 0) {
-            less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
-        }
-        if (this.debtAmount && parseFloat(this.debtAmount) > 0) {
-            less.push({ description: 'Debt Deduction', amount: parseFloat(this.debtAmount), date: new Date() });
-        }
-        
-        const data = {
-            customerName: this.customerName,
-            customerPhone: this.customerPhone,
-            customerAddress: this.customerAddress,
-            vehicle: this.vehicleNo,
-            receiptTitle: 'Sales Receipt',
-            credits: credits,
-            less: less,
-            companyInfo: { 
-                name: 'Africa Steel Ltd', 
-                email: 'ganiolaiya123@gmail.com', 
-                phone: '08033281397, 08052944592, 08062514308', 
-                address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' 
-            },
-            creditorName: 'Gani Eleke',
-            creditorPhone: '08033281397'
-        };
-        
+        if (this.expenses && parseFloat(this.expenses) > 0) less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
+        if (this.debtAmount && parseFloat(this.debtAmount) > 0) less.push({ description: 'Debt Deduction', amount: parseFloat(this.debtAmount), date: new Date() });
+        const data = { customerName: this.customerName, customerPhone: this.customerPhone, customerAddress: this.customerAddress, vehicle: this.vehicleNo, receiptTitle: 'Sales Receipt', credits: credits, less: less, companyInfo: { name: 'Africa Steel Ltd', email: 'ganiolaiya123@gmail.com', phone: '08033281397, 08052944592, 08062514308', address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' }, creditorName: 'Gani Eleke', creditorPhone: '08033281397' };
         try {
-            const res = await fetch(getApiUrl('/receipts'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
-                body: JSON.stringify(data)
-            });
+            const res = await fetch(getApiUrl('/receipts'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(data) });
             if (res.ok) {
                 const receipt = await res.json();
                 this.receipts.unshift(receipt);
                 this.currentReceipt = receipt;
                 this.showModal = true;
-                // Reset form
-                this.customerName = '';
-                this.customerPhone = '';
-                this.customerAddress = '';
-                this.vehicleNo = '';
-                this.expenses = '';
-                this.debtAmount = '';
+                this.customerName = ''; this.customerPhone = ''; this.customerAddress = ''; this.vehicleNo = ''; this.expenses = ''; this.debtAmount = '';
                 this.items = [{ description: '', quantity: '', dust: '', rate: '' }];
                 await this.loadSummary();
-            } else {
-                const error = await res.json();
-                alert(error.message || 'Error creating receipt');
-            }
-        } catch (err) {
-            alert('Network error: ' + err.message);
-        }
+            } else { const error = await res.json(); alert(error.message || 'Error creating receipt'); }
+        } catch (err) { alert('Network error: ' + err.message); }
     },
-    
     async downloadPDF(type) {
         if (!this.currentReceipt) return;
-        
         try {
             const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
             const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
@@ -335,161 +135,70 @@
                 a.click();
                 URL.revokeObjectURL(url);
                 this.showModal = false;
-            } else {
-                alert('Failed to generate PDF');
-            }
-        } catch (err) {
-            alert('Network error: ' + err.message);
-        }
+            } else { alert('Failed to generate PDF'); }
+        } catch (err) { alert('Network error: ' + err.message); }
     },
     
-    // ============ LAND RENT FUNCTIONS ============
-    async loadLandRents() {
-        if (!this.token) return;
-        
-        try {
-            const res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                this.landRents = await res.json();
-            }
-        } catch (err) {
-            alert('Network error');
-        }
-    },
-    
-    get totalLandAmount() {
-        const rate = parseFloat(this.rentalRate) || 0;
-        const dur = parseInt(this.duration) || 0;
-        return rate * dur;
-    },
-    
+    // Land Rent Functions
+    async loadLandRents() { if (!this.token) return; try { const res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.landRents = await res.json(); } catch (err) { alert('Network error'); } },
     async createLandRent() {
         if (!this.token) return;
-        
-        const data = {
-            customerName: this.landCustomerName,
-            customerPhone: this.landCustomerPhone,
-            truckType: this.truckType,
-            startDate: this.startDate,
-            duration: parseInt(this.duration),
-            plotNumber: this.plotNumber,
-            rentalRate: parseFloat(this.rentalRate),
-            notes: this.landNotes
-        };
-        
+        const data = { customerName: this.landCustomerName, customerPhone: this.landCustomerPhone, truckType: this.truckType, material: this.material, amount: parseFloat(this.amount) || 0, status: this.status, notes: this.landNotes };
+        if (!data.customerName || !data.truckType || !data.material || data.amount <= 0) { alert('Please fill all required fields'); return; }
         try {
-            const res = await fetch(getApiUrl('/landrents'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
-                body: JSON.stringify(data)
-            });
+            const res = await fetch(getApiUrl('/landrents'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(data) });
             if (res.ok) {
                 const landRent = await res.json();
                 this.landRents.unshift(landRent);
-                this.landCustomerName = '';
-                this.landCustomerPhone = '';
-                this.truckType = '';
-                this.startDate = '';
-                this.duration = '';
-                this.plotNumber = '';
-                this.rentalRate = '';
-                this.landNotes = '';
+                this.landCustomerName = ''; this.landCustomerPhone = ''; this.truckType = ''; this.material = ''; this.amount = ''; this.status = 'pending'; this.landNotes = '';
                 alert('Land rental registered successfully!');
                 await this.loadSummary();
-            } else {
-                const error = await res.json();
-                alert(error.message || 'Error creating land rental');
-            }
-        } catch (err) {
-            alert('Network error');
-        }
+            } else { const error = await res.json(); alert(error.message || 'Error creating land rental'); }
+        } catch (err) { alert('Network error'); }
     },
     
-    // ============ CLEAR TRANSACTIONS ============
+    // Clear Transactions
     async clearTransactions(type) {
         if (!this.token) return;
-        
         try {
             let response;
-            if (type === 'receipts') {
-                response = await fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
-            } else if (type === 'landrents') {
-                response = await fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
-            } else if (type === 'all') {
-                await Promise.all([
-                    fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }),
-                    fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } })
-                ]);
+            if (type === 'receipts') response = await fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+            else if (type === 'landrents') response = await fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+            else if (type === 'all') {
+                await Promise.all([ fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }), fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }) ]);
                 response = { ok: true };
             }
-            
             if (response && response.ok) {
                 alert(`${type.toUpperCase()} cleared successfully!`);
                 await this.loadSummary();
                 if (type === 'receipts' || type === 'all') await this.loadReceipts();
                 if (type === 'landrents' || type === 'all') await this.loadLandRents();
-                this.showClearReceiptsModal = false;
-                this.showClearAllModal = false;
+                this.showClearReceiptsModal = false; this.showClearAllModal = false;
             }
-        } catch (err) {
-            alert('Network error: ' + err.message);
-        }
+        } catch (err) { alert('Network error: ' + err.message); }
     }
-    
-}" x-init="async function() { 
-    await loadSummary(); 
-    await loadReceipts(); 
-    await loadLandRents(); 
-}()">
+}" x-init="async function() { await loadSummary(); await loadReceipts(); await loadLandRents(); }()">
 
     <div class="flex h-screen overflow-hidden">
-        
         <!-- Mobile Menu Toggle Button -->
-        <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden">
-            <i class="fa-solid fa-bars text-xl"></i>
-        </button>
+        <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden"><i class="fa-solid fa-bars text-xl"></i></button>
         
         <!-- Sidebar -->
-        <aside class="w-64 bg-slate-900 text-white flex flex-col shrink-0 transition-transform duration-300 ease-in-out z-40" 
-               :class="mobileMenuOpen ? 'sidebar-open fixed inset-y-0 left-0' : 'sidebar-collapsed hidden md:flex'">
+        <aside class="w-64 bg-slate-900 text-white flex flex-col shrink-0 transition-transform duration-300 ease-in-out z-40" :class="mobileMenuOpen ? 'sidebar-open fixed inset-y-0 left-0' : 'sidebar-collapsed hidden md:flex'">
             <div class="p-6 flex items-center gap-3 border-b border-slate-800">
-                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center p-1 font-bold text-white shadow-lg overflow-hidden border border-white/10">
-                    <img src="/frontend/img/image.jpg" alt="Gani Eleke Logo" class="w-full h-full object-contain">
-                </div>
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center p-1 font-bold text-white shadow-lg overflow-hidden border border-white/10"><img src="/frontend/img/image.jpg" alt="Gani Eleke Logo" class="w-full h-full object-contain"></div>
                 <span class="text-xl font-bold tracking-tight text-white">Gani Eleke Ent</span>
-                <button @click="mobileMenuOpen = false" class="md:hidden ml-auto text-white">
-                    <i class="fa-solid fa-times text-xl"></i>
-                </button>
+                <button @click="mobileMenuOpen = false" class="md:hidden ml-auto text-white"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
-
             <nav class="flex-1 mt-6 px-4 space-y-2">
-                <button @click="page = 'dashboard'; mobileMenuOpen = false" :class="page === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all">
-                    <i class="fa-solid fa-chart-line w-5"></i>
-                    <span class="font-medium">Dashboard</span>
-                </button>
-                <button @click="page = 'receipt'; mobileMenuOpen = false" :class="page === 'receipt' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all">
-                    <i class="fa-solid fa-file-invoice-dollar w-5"></i>
-                    <span class="font-medium text-left">Generate Receipt</span>
-                </button>
-                <button @click="page = 'landrent'; mobileMenuOpen = false" :class="page === 'landrent' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all">
-                    <i class="fa-solid fa-house-chimney-user w-5"></i>
-                    <span class="font-medium">Land Rent</span>
-                </button>
-                <button @click="page = 'settings'; mobileMenuOpen = false" :class="page === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all">
-                    <i class="fa-solid fa-gears w-5"></i>
-                    <span class="font-medium">Settings</span>
-                </button>
+                <button @click="page = 'dashboard'; mobileMenuOpen = false" :class="page === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-chart-line w-5"></i><span class="font-medium">Dashboard</span></button>
+                <button @click="page = 'receipt'; mobileMenuOpen = false" :class="page === 'receipt' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-file-invoice-dollar w-5"></i><span class="font-medium text-left">Generate Receipt</span></button>
+                <button @click="page = 'landrent'; mobileMenuOpen = false" :class="page === 'landrent' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-house-chimney-user w-5"></i><span class="font-medium">Land Rent</span></button>
+                <button @click="page = 'settings'; mobileMenuOpen = false" :class="page === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-gears w-5"></i><span class="font-medium">Settings</span></button>
             </nav>
-
-            <div class="p-4 border-t border-slate-800">
-                <button @click="logout" class="flex items-center justify-center gap-2 hover:bg-slate-800 text-red-500 font-bold rounded-lg px-4 py-3 transition-colors w-full">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                    <span class="font-medium">LogOut</span>
-                </button>
-            </div>
+            <div class="p-4 border-t border-slate-800"><button @click="logout" class="flex items-center justify-center gap-2 hover:bg-slate-800 text-red-500 font-bold rounded-lg px-4 py-3 transition-colors w-full"><i class="fa-solid fa-arrow-right-from-bracket"></i><span class="font-medium">LogOut</span></button></div>
         </aside>
         
-        <!-- Overlay for mobile menu -->
         <div x-show="mobileMenuOpen" @click="mobileMenuOpen = false" class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" x-cloak></div>
 
         <main class="flex-1 overflow-y-auto p-4 md:p-8 main-content">
@@ -498,46 +207,16 @@
             <template x-if="page === 'dashboard'">
                 <div>
                     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 uppercase tracking-wide">Dashboard Overview</h2>
-                    
-                    <!-- Receipt Stats -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Receipts</p>
-                            <p class="text-2xl md:text-3xl font-black text-green-600 mt-1" x-text="summary.totalReceipts"></p>
-                        </div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Credits</p>
-                            <p class="text-xl md:text-3xl font-black text-green-500 mt-1" x-text="'₦' + summary.totalCredit.toLocaleString()"></p>
-                        </div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Debits</p>
-                            <p class="text-xl md:text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.totalDebit.toLocaleString()"></p>
-                        </div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Balance</p>
-                            <p class="text-xl md:text-3xl font-black text-orange-600 mt-1" x-text="'₦' + summary.totalBalance.toLocaleString()"></p>
-                        </div>
-                    </div>
-
-                    <!-- Land Rent Stats -->
-                    <h3 class="text-lg md:text-xl font-bold text-gray-700 mb-3 md:mb-4">Land Rentals Overview</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Rentals</p>
-                            <p class="text-2xl md:text-3xl font-black text-purple-600 mt-1" x-text="summary.landRentSummary.totalRentals"></p>
-                        </div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Active Rentals</p>
-                            <p class="text-2xl md:text-3xl font-black text-green-600 mt-1" x-text="summary.landRentSummary.activeRentals"></p>
-                        </div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Revenue</p>
-                            <p class="text-xl md:text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.landRentSummary.totalRevenue.toLocaleString()"></p>
-                        </div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Active Revenue</p>
-                            <p class="text-xl md:text-3xl font-black text-indigo-600 mt-1" x-text="'₦' + summary.landRentSummary.activeRevenue.toLocaleString()"></p>
-                        </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Receipts</p><p class="text-2xl md:text-3xl font-black text-green-600 mt-1" x-text="summary.totalReceipts"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Credits</p><p class="text-xl md:text-3xl font-black text-green-500 mt-1" x-text="'₦' + summary.totalCredit.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Debits</p><p class="text-xl md:text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.totalDebit.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Balance</p><p class="text-xl md:text-3xl font-black text-orange-600 mt-1" x-text="'₦' + summary.totalBalance.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Land Revenue This Week</p><p class="text-xl md:text-3xl font-black text-purple-600 mt-1" x-text="'₦' + summary.landRevenueThisWeek.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Land Revenue</p><p class="text-xl md:text-3xl font-black text-indigo-600 mt-1" x-text="'₦' + summary.totalLandRevenue.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue</p><p class="text-xl md:text-3xl font-black text-teal-600 mt-1" x-text="'₦' + summary.agentRevenue.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue This Week</p><p class="text-xl md:text-3xl font-black text-pink-600 mt-1" x-text="'₦' + summary.agentRevenueThisWeek.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Agent Revenue</p><p class="text-xl md:text-3xl font-black text-amber-600 mt-1" x-text="'₦' + summary.totalAgentRevenue.toLocaleString()"></p></div>
                     </div>
                 </div>
             </template>
@@ -545,29 +224,21 @@
             <!-- ============ RECEIPT PAGE ============ -->
             <template x-if="page === 'receipt'">
                 <div class="space-y-4 md:space-y-6">
-                    <!-- Search Section -->
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-lg md:text-xl font-bold text-slate-800 uppercase tracking-tight">Find Older Receipt</h2>
                         <div class="relative w-full md:max-w-sm">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                                <i class="fa-solid fa-magnifying-glass text-sm"></i>
-                            </span>
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fa-solid fa-magnifying-glass text-sm"></i></span>
                             <input type="text" x-model="search" placeholder="Search name or Receipt ID..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                             <div x-show="search.length > 0" x-transition class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                                 <template x-for="receipt in filteredReceipts" :key="receipt._id">
-                                    <div class="p-3 hover:bg-blue-50 transition-colors border-b border-slate-50 cursor-pointer">
-                                        <p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p>
-                                        <p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p>
-                                    </div>
+                                    <div class="p-3 hover:bg-blue-50 transition-colors border-b border-slate-50 cursor-pointer"><p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p><p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p></div>
                                 </template>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Generate Receipt Form -->
                     <div class="w-full bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl shadow-xl border border-gray-100">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-center text-slate-800 border-b pb-4">Generate New Receipt</h2>
-                        
                         <form @submit.prevent="createReceipt()" class="space-y-4 md:space-y-5">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Customer Name *</label><input type="text" x-model="customerName" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
@@ -575,12 +246,8 @@
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Customer Address</label><input type="text" x-model="customerAddress" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"></div>
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Vehicle No.</label><input type="text" x-model="vehicleNo" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"></div>
                             </div>
-
                             <div class="border-t pt-4">
-                                <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-                                    <label class="text-sm font-bold uppercase text-slate-600">Items Details</label>
-                                    <button type="button" @click="addItem()" class="text-blue-600 text-sm font-semibold hover:text-blue-800"><i class="fa-solid fa-plus mr-1"></i> Add Item</button>
-                                </div>
+                                <div class="flex justify-between items-center mb-3 flex-wrap gap-2"><label class="text-sm font-bold uppercase text-slate-600">Items Details</label><button type="button" @click="addItem()" class="text-blue-600 text-sm font-semibold hover:text-blue-800"><i class="fa-solid fa-plus mr-1"></i> Add Item</button></div>
                                 <div class="space-y-3 overflow-x-auto">
                                     <template x-for="(item, index) in items" :key="index">
                                         <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end bg-gray-50 p-3 rounded-lg">
@@ -593,19 +260,15 @@
                                     </template>
                                 </div>
                             </div>
-
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Offloading Expenses</label><input type="number" x-model="expenses" step="0.01" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"></div>
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Debt Deduction</label><input type="number" x-model="debtAmount" step="0.01" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base" placeholder="Amount customer owes"></div>
                             </div>
-                            
                             <div class="pt-2"><label class="text-xs font-bold uppercase text-blue-600">Total Payment</label><input type="text" :value="'₦' + totalPayment.toLocaleString()" class="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-xl font-bold text-base md:text-lg text-blue-700" readonly></div>
-                            
                             <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 md:py-4 rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-3"><i class="fa-solid fa-print"></i> Generate Receipt</button>
                         </form>
                     </div>
 
-                    <!-- Print Modal -->
                     <div x-show="showModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                         <div @click.away="showModal = false" class="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 md:p-8 text-center">
                             <div class="w-16 h-16 md:w-20 md:h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl"><i class="fa-solid fa-file-invoice"></i></div>
@@ -631,11 +294,9 @@
                                 <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Customer Name *</label><input type="text" x-model="landCustomerName" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
                                 <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Customer Phone</label><input type="tel" x-model="landCustomerPhone" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base"></div>
                                 <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Truck Type *</label><input type="text" x-model="truckType" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
-                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Plot Number *</label><input type="text" x-model="plotNumber" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
-                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Start Date *</label><input type="date" x-model="startDate" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
-                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Duration (Days) *</label><input type="number" x-model="duration" min="1" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
-                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Daily Rate (₦) *</label><input type="number" x-model="rentalRate" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
-                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Total Amount (₦)</label><input type="text" :value="'₦' + totalLandAmount.toLocaleString()" class="w-full p-3 bg-blue-50 border-2 border-blue-200 rounded-lg font-bold text-blue-700 text-sm md:text-base" readonly></div>
+                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Material *</label><input type="text" x-model="material" placeholder="e.g., Sand, Gravel, Laterite" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
+                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (₦) *</label><input type="number" x-model="amount" step="0.01" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" required></div>
+                                <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Status</label><select x-model="status" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
                             </div>
                             <div><label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label><textarea x-model="landNotes" rows="3" class="w-full p-3 border border-gray-200 rounded-lg text-sm md:text-base" placeholder="Additional notes..."></textarea></div>
                             <button type="submit" class="w-full bg-blue-600 text-white py-3 md:py-4 rounded-lg font-bold hover:bg-blue-700 transition text-sm md:text-base">Register Land Rental</button>
@@ -645,14 +306,22 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="p-4 md:p-6 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <h2 class="text-lg md:text-xl font-bold text-gray-800">All Land Rental Transactions</h2>
-                            <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold" x-text="landRents.filter(r => r.status === 'active').length + ' Active'"></span>
+                            <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold" x-text="landRents.filter(r => r.status === 'paid').length + ' Paid'"></span>
                         </div>
                         <div class="overflow-x-auto table-container">
                             <table class="w-full min-w-[600px]">
-                                <thead class="bg-gray-50"><tr><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Customer</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Plot</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Truck</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Duration</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">End Date</th></tr></thead>
+                                <thead class="bg-gray-50"><tr><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Customer</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Phone</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Truck Type</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Material</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Date</th></tr></thead>
                                 <tbody class="divide-y divide-gray-200">
                                     <template x-for="rental in landRents" :key="rental._id">
-                                        <tr class="hover:bg-gray-50"><td class="px-3 md:px-6 py-4"><div class="text-sm font-medium text-gray-900" x-text="rental.customerName"></div><div class="text-xs text-gray-500" x-text="rental.customerPhone"></div></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.plotNumber"></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.truckType"></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.duration + ' days'"></td><td class="px-3 md:px-6 py-4 text-sm font-bold text-green-600" x-text="'₦' + rental.totalAmount.toLocaleString()"></td><td class="px-3 md:px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="rental.status === 'active' ? 'bg-green-100 text-green-800' : rental.status === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'" x-text="rental.status"></span></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="new Date(rental.endDate).toLocaleDateString()"></td></tr>
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-3 md:px-6 py-4"><div class="text-sm font-medium text-gray-900" x-text="rental.customerName"></div></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.customerPhone"></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.truckType"></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.material"></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm font-bold text-green-600" x-text="'₦' + rental.amount.toLocaleString()"></td>
+                                            <td class="px-3 md:px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="rental.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" x-text="rental.status"></span></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="new Date(rental.createdAt).toLocaleDateString()"></td>
+                                        </tr>
                                     </template>
                                 </tbody>
                             </table>
@@ -669,7 +338,6 @@
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800">System Settings</h2>
                         <div class="space-y-4 md:space-y-6"><div><label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Assigned User Role</label><select class="w-full p-3 md:p-4 border border-gray-300 rounded-xl bg-gray-50 text-sm md:text-base"><option>Administrator</option><option>Agent</option><option>Secretary</option></select></div><div class="flex items-center justify-between p-3 md:p-4 bg-blue-50 rounded-xl flex-wrap gap-2"><div><h4 class="font-bold text-blue-900 text-sm md:text-base">Developer Mode</h4><p class="text-xs text-blue-700">Access system logs and API endpoints</p></div><input type="checkbox" class="w-5 h-5 md:w-6 md:h-6 rounded"></div></div>
                     </div>
-
                     <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border-2 border-red-200">
                         <div class="flex items-center gap-3 mb-4 md:mb-6"><i class="fa-solid fa-triangle-exclamation text-xl md:text-2xl text-red-600"></i><h2 class="text-xl md:text-2xl font-bold text-red-600">Danger Zone</h2></div>
                         <div class="space-y-3 md:space-y-4">
@@ -678,8 +346,6 @@
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 bg-red-700 rounded-xl gap-3"><div><h4 class="font-bold text-white text-sm md:text-base">⚠️ DELETE ALL TRANSACTIONS ⚠️</h4><p class="text-xs text-red-100">Delete EVERYTHING - Receipts, Land Rentals</p></div><button @click="showClearAllModal = true" class="bg-white text-red-700 px-4 md:px-6 py-2 rounded-lg font-bold text-sm md:text-base">DELETE ALL</button></div>
                         </div>
                     </div>
-
-                    <!-- Confirmation Modals -->
                     <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div><h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3><p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button></div></div></div>
                     <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div><h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3><p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button></div></div></div>
                 </div>
@@ -693,6 +359,5 @@
             window.location.href = 'index.html';
         }
     </script>
-
 </body>
 </html>

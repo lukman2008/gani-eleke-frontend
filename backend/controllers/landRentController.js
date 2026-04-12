@@ -2,28 +2,19 @@ const LandRent = require('../models/LandRent');
 
 // Create land rental
 const createLandRent = async (req, res) => {
-  const { customerName, customerPhone, truckType, startDate, duration, plotNumber, rentalRate, notes } = req.body;
+  const { customerName, customerPhone, truckType, material, amount, status, notes } = req.body;
 
-  if (!customerName || !truckType || !startDate || !duration || !plotNumber || !rentalRate) {
-    return res.status(400).json({ message: 'All required fields must be provided.' });
+  if (!customerName || !truckType || !material || amount === undefined) {
+    return res.status(400).json({ message: 'Customer name, truck type, material, and amount are required.' });
   }
-
-  const start = new Date(startDate);
-  const endDate = new Date(start);
-  endDate.setDate(start.getDate() + parseInt(duration));
-
-  const totalAmount = parseFloat(rentalRate) * parseInt(duration);
 
   const landRent = await LandRent.create({
     customerName: String(customerName).trim(),
     customerPhone: customerPhone ? String(customerPhone).trim() : '',
     truckType: String(truckType).trim(),
-    startDate: start,
-    duration: parseInt(duration),
-    plotNumber: String(plotNumber).trim(),
-    rentalRate: parseFloat(rentalRate),
-    totalAmount,
-    endDate,
+    material: String(material).trim(),
+    amount: parseFloat(amount),
+    status: status || 'pending',
     notes: notes ? String(notes).trim() : '',
     createdBy: req.user._id,
   });
@@ -53,33 +44,15 @@ const updateLandRent = async (req, res) => {
     return res.status(404).json({ message: 'Land rental not found.' });
   }
 
-  const updates = {};
-  const allowedFields = ['customerName', 'customerPhone', 'truckType', 'startDate', 'duration', 'plotNumber', 'rentalRate', 'status', 'notes'];
+  const allowedFields = ['customerName', 'customerPhone', 'truckType', 'material', 'amount', 'status', 'notes'];
 
   allowedFields.forEach(field => {
     if (req.body[field] !== undefined) {
-      updates[field] = req.body[field];
+      landRent[field] = req.body[field];
     }
   });
 
-  // Recalculate total amount if rate or duration changed
-  if (updates.rentalRate || updates.duration) {
-    const rate = updates.rentalRate || landRent.rentalRate;
-    const duration = updates.duration || landRent.duration;
-    updates.totalAmount = parseFloat(rate) * parseInt(duration);
-
-    // Recalculate end date if start date or duration changed
-    if (updates.startDate || updates.duration) {
-      const start = updates.startDate ? new Date(updates.startDate) : landRent.startDate;
-      const dur = updates.duration || landRent.duration;
-      updates.endDate = new Date(start);
-      updates.endDate.setDate(start.getDate() + parseInt(dur));
-    }
-  }
-
-  Object.assign(landRent, updates);
   await landRent.save();
-
   res.json(landRent);
 };
 
@@ -89,7 +62,6 @@ const deleteLandRent = async (req, res) => {
   if (!landRent) {
     return res.status(404).json({ message: 'Land rental not found.' });
   }
-
   await landRent.deleteOne();
   res.json({ message: 'Land rental deleted.' });
 };
@@ -97,16 +69,29 @@ const deleteLandRent = async (req, res) => {
 // Get land rent summary
 const getLandRentSummary = async (req, res) => {
   const landRents = await LandRent.find();
-  const totalRentals = landRents.length;
-  const activeRentals = landRents.filter(r => r.status === 'active').length;
-  const totalRevenue = landRents.reduce((sum, r) => sum + r.totalAmount, 0);
-  const activeRevenue = landRents.filter(r => r.status === 'active').reduce((sum, r) => sum + r.totalAmount, 0);
+  
+  // Calculate current week revenue (Monday to Sunday)
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  startOfWeek.setHours(0, 0, 0, 0);
+  
+  const weeklyRentals = landRents.filter(r => new Date(r.createdAt) >= startOfWeek);
+  const weeklyRevenue = weeklyRentals.reduce((sum, r) => sum + (r.amount || 0), 0);
+  
+  // Agent revenue calculations (for agents)
+  const agentRevenue = landRents.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.amount || 0), 0);
+  const weeklyAgentRevenue = weeklyRentals.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.amount || 0), 0);
+  
+  const totalRevenue = landRents.reduce((sum, r) => sum + (r.amount || 0), 0);
+  const totalAgentRevenue = landRents.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.amount || 0), 0);
 
   res.json({
-    totalRentals,
-    activeRentals,
     totalRevenue,
-    activeRevenue,
+    weeklyRevenue,
+    agentRevenue,
+    agentWeeklyRevenue: weeklyAgentRevenue,
+    totalAgentRevenue,
   });
 };
 
