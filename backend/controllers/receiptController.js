@@ -12,12 +12,10 @@ const formatNumber = (num) => {
   return num.toLocaleString('en-US');
 };
 
-// Dynamic logo URL function
+// Dynamic logo URL function - works everywhere
 const getLogoUrl = () => {
-    if (process.env.RENDER) {
-        return 'https://gani-eleke-project.vercel.app/frontend/img/image.jpg';
-    }
-    return 'file:///' + path.join(__dirname, '../public/img/image.jpg').replace(/\\/g, '/');
+    // Always use the online URL for PDF generation (works both locally and on Render)
+    return 'https://gani-eleke-project.vercel.app/frontend/img/image.jpg';
 };
 
 // Read HTML templates
@@ -212,8 +210,9 @@ const clearReceipts = async (req, res) => {
    GENERATE PDF FROM HTML
 ========================= */
 
+// Function to find Chrome executable path
 const getExecutablePath = () => {
-  // For Windows
+  // For Windows (local development)
   const windowsPaths = [
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
@@ -227,7 +226,18 @@ const getExecutablePath = () => {
   
   // For Render.com (Linux)
   if (process.env.RENDER) {
-    return '/usr/bin/chromium-browser';
+    // Try common paths on Render
+    const linuxPaths = [
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome'
+    ];
+    for (const p of linuxPaths) {
+      if (fs.existsSync(p)) {
+        return p;
+      }
+    }
   }
   
   return null;
@@ -236,13 +246,16 @@ const getExecutablePath = () => {
 const generatePDFFromHTML = async (htmlContent) => {
   const executablePath = getExecutablePath();
   
+  console.log('Looking for Chrome at:', executablePath);
+  
   if (!executablePath) {
+    console.error('Chrome/Chromium not found!');
     throw new Error('Chrome/Chromium not found. Please install Chrome or specify the path.');
   }
   
   const browser = await puppeteer.launch({
     executablePath: executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   });
   
   const page = await browser.newPage();
@@ -257,64 +270,72 @@ const generatePDFFromHTML = async (htmlContent) => {
 ========================= */
 
 const getReceiptPdfCompany = async (receipt, res) => {
-  const date = new Date(receipt.date || Date.now());
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear().toString().slice(-2);
-  
-  let totalCredit = 0;
-  let totalProfit = 0;
-  const profits = [];
-  
-  const items = receipt.credits.map((item, index) => {
-    const iAmount = item.qty * (item.initialRate || item.rate);
-    const fAmount = (item.qty * item.rate) - (item.dust || 0);
-    const profit = fAmount - iAmount;
-    totalCredit += fAmount;
-    totalProfit += profit;
-    if (profit !== 0) {
-      profits.push({ name: item.description, amount: formatCurrency(profit) });
-    }
-    return {
-      description: item.description,
-      dust: item.dust || 0,
-      qty: item.qty,
-      iRate: item.initialRate || item.rate,
-      fRate: item.rate,
-      iAmount: formatNumber(iAmount),
-      fAmount: formatNumber(fAmount),
-      odd: index % 2 === 1
-    };
-  });
-  
-  const offloadingAmount = receipt.less.find(l => l.description === 'Offloading')?.amount || 0;
-  const debitTotal = receipt.debitTotal || 0;
-  const balance = receipt.balance || 0;
-  
-  const logoUrl = getLogoUrl();
-  
-  const html = compiledCompanyTemplate({
-    logoUrl,
-    day,
-    month,
-    year,
-    companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
-    customerName: receipt.customerName || '',
-    customerAddress: receipt.customerAddress || '',
-    customerPhone: receipt.customerPhone || '',
-    vehicleNo: receipt.vehicle || '',
-    items,
-    offloadingAmount: formatNumber(offloadingAmount),
-    debtAmount: '',
-    profits,
-    totalProfit: formatCurrency(totalProfit),
-    creditAmount: formatCurrency(totalCredit),
-    debitAmount: formatCurrency(debitTotal),
-    balanceAmount: formatCurrency(balance)
-  });
-  
-  const pdf = await generatePDFFromHTML(html);
-  res.end(pdf);
+  try {
+    console.log('Generating Company PDF for receipt:', receipt._id);
+    
+    const date = new Date(receipt.date || Date.now());
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2);
+    
+    let totalCredit = 0;
+    let totalProfit = 0;
+    const profits = [];
+    
+    const items = receipt.credits.map((item, index) => {
+      const iAmount = item.qty * (item.initialRate || item.rate);
+      const fAmount = (item.qty * item.rate) - (item.dust || 0);
+      const profit = fAmount - iAmount;
+      totalCredit += fAmount;
+      totalProfit += profit;
+      if (profit !== 0) {
+        profits.push({ name: item.description, amount: formatCurrency(profit) });
+      }
+      return {
+        description: item.description,
+        dust: item.dust || 0,
+        qty: item.qty,
+        iRate: item.initialRate || item.rate,
+        fRate: item.rate,
+        iAmount: formatNumber(iAmount),
+        fAmount: formatNumber(fAmount),
+        odd: index % 2 === 1
+      };
+    });
+    
+    const offloadingAmount = receipt.less.find(l => l.description === 'Offloading')?.amount || 0;
+    const debitTotal = receipt.debitTotal || 0;
+    const balance = receipt.balance || 0;
+    
+    const logoUrl = getLogoUrl();
+    
+    const html = compiledCompanyTemplate({
+      logoUrl,
+      day,
+      month,
+      year,
+      companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
+      customerName: receipt.customerName || '',
+      customerAddress: receipt.customerAddress || '',
+      customerPhone: receipt.customerPhone || '',
+      vehicleNo: receipt.vehicle || '',
+      items,
+      offloadingAmount: formatNumber(offloadingAmount),
+      debtAmount: '',
+      profits,
+      totalProfit: formatCurrency(totalProfit),
+      creditAmount: formatCurrency(totalCredit),
+      debitAmount: formatCurrency(debitTotal),
+      balanceAmount: formatCurrency(balance)
+    });
+    
+    const pdf = await generatePDFFromHTML(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.end(pdf);
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    res.status(500).json({ error: 'PDF generation failed', details: error.message });
+  }
 };
 
 /* =========================
@@ -322,52 +343,60 @@ const getReceiptPdfCompany = async (receipt, res) => {
 ========================= */
 
 const getReceiptPdfCustomer = async (receipt, res) => {
-  const date = new Date(receipt.date || Date.now());
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear().toString().slice(-2);
-  
-  let totalCredit = 0;
-  
-  const items = receipt.credits.map((item, index) => {
-    const amount = (item.qty * item.rate) - (item.dust || 0);
-    totalCredit += amount;
-    return {
-      description: item.description,
-      dust: item.dust || 0,
-      qty: item.qty,
-      rate: item.rate,
-      amount: formatNumber(amount),
-      odd: index % 2 === 1
-    };
-  });
-  
-  const offloadingAmount = receipt.less.find(l => l.description === 'Offloading')?.amount || 0;
-  const debitTotal = receipt.debitTotal || 0;
-  const balance = receipt.balance || 0;
-  
-  const logoUrl = getLogoUrl();
-  
-  const html = compiledCustomerTemplate({
-    logoUrl,
-    day,
-    month,
-    year,
-    companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
-    customerName: receipt.customerName || '',
-    customerAddress: receipt.customerAddress || '',
-    customerPhone: receipt.customerPhone || '',
-    vehicleNo: receipt.vehicle || '',
-    items,
-    offloadingAmount: formatNumber(offloadingAmount),
-    debtAmount: '',
-    creditAmount: formatCurrency(totalCredit),
-    debitAmount: formatCurrency(debitTotal),
-    balanceAmount: formatCurrency(balance)
-  });
-  
-  const pdf = await generatePDFFromHTML(html);
-  res.end(pdf);
+  try {
+    console.log('Generating Customer PDF for receipt:', receipt._id);
+    
+    const date = new Date(receipt.date || Date.now());
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2);
+    
+    let totalCredit = 0;
+    
+    const items = receipt.credits.map((item, index) => {
+      const amount = (item.qty * item.rate) - (item.dust || 0);
+      totalCredit += amount;
+      return {
+        description: item.description,
+        dust: item.dust || 0,
+        qty: item.qty,
+        rate: item.rate,
+        amount: formatNumber(amount),
+        odd: index % 2 === 1
+      };
+    });
+    
+    const offloadingAmount = receipt.less.find(l => l.description === 'Offloading')?.amount || 0;
+    const debitTotal = receipt.debitTotal || 0;
+    const balance = receipt.balance || 0;
+    
+    const logoUrl = getLogoUrl();
+    
+    const html = compiledCustomerTemplate({
+      logoUrl,
+      day,
+      month,
+      year,
+      companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
+      customerName: receipt.customerName || '',
+      customerAddress: receipt.customerAddress || '',
+      customerPhone: receipt.customerPhone || '',
+      vehicleNo: receipt.vehicle || '',
+      items,
+      offloadingAmount: formatNumber(offloadingAmount),
+      debtAmount: '',
+      creditAmount: formatCurrency(totalCredit),
+      debitAmount: formatCurrency(debitTotal),
+      balanceAmount: formatCurrency(balance)
+    });
+    
+    const pdf = await generatePDFFromHTML(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.end(pdf);
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    res.status(500).json({ error: 'PDF generation failed', details: error.message });
+  }
 };
 
 /* =========================
@@ -379,8 +408,6 @@ const getReceiptPdf = async (req, res) => {
   if (!receipt) return res.status(404).json({ message: 'Not found' });
 
   const { type } = req.query;
-
-  res.setHeader('Content-Type', 'application/pdf');
 
   if (type === 'customer') {
     return getReceiptPdfCustomer(receipt, res);
