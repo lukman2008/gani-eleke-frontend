@@ -274,14 +274,31 @@ const getExecutablePath = () => {
 };
 
 const generatePDFFromHTML = async (htmlContent) => {
-  const executablePath = getExecutablePath();
+  const puppeteer = require('puppeteer-core');
   
-  console.log('Looking for Chrome at:', executablePath);
+  // Find Chrome/Chromium path
+  let executablePath;
   
-  if (!executablePath) {
-    console.error('Chrome/Chromium not found!');
-    throw new Error('Chrome/Chromium not found. Please install Chrome or specify the path.');
+  // For Render.com (Linux) - Chromium is pre-installed
+  if (process.env.RENDER) {
+    executablePath = '/usr/bin/chromium-browser';
+  } 
+  // For local Windows development
+  else {
+    const windowsPaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+    ];
+    for (const p of windowsPaths) {
+      const fs = require('fs');
+      if (fs.existsSync(p)) {
+        executablePath = p;
+        break;
+      }
+    }
   }
+  
+  console.log('Using Chrome at:', executablePath);
   
   const browser = await puppeteer.launch({
     executablePath: executablePath,
