@@ -66,31 +66,47 @@ const deleteLandRent = async (req, res) => {
   res.json({ message: 'Land rental deleted.' });
 };
 
-// Get land rent summary
+// Get land rent summary - FIXED VERSION
 const getLandRentSummary = async (req, res) => {
   const landRents = await LandRent.find();
   
   // Calculate current week revenue (Monday to Sunday)
   const now = new Date();
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  // Adjust to Monday as first day of week
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  startOfWeek.setDate(now.getDate() - daysToMonday);
   startOfWeek.setHours(0, 0, 0, 0);
   
-  const weeklyRentals = landRents.filter(r => new Date(r.createdAt) >= startOfWeek);
+  // Calculate end of week (Sunday)
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+  
+  // Total revenue from all rentals (all statuses)
+  const totalRevenue = landRents.reduce((sum, r) => sum + (r.amount || 0), 0);
+  
+  // Weekly revenue from all rentals created this week
+  const weeklyRentals = landRents.filter(r => new Date(r.createdAt) >= startOfWeek && new Date(r.createdAt) <= endOfWeek);
   const weeklyRevenue = weeklyRentals.reduce((sum, r) => sum + (r.amount || 0), 0);
   
-  // Agent revenue calculations (for agents)
-  const agentRevenue = landRents.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.amount || 0), 0);
-  const weeklyAgentRevenue = weeklyRentals.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.amount || 0), 0);
+  // Agent revenue = total from paid rentals only
+  const paidRentals = landRents.filter(r => r.status === 'paid');
+  const agentRevenue = paidRentals.reduce((sum, r) => sum + (r.amount || 0), 0);
   
-  const totalRevenue = landRents.reduce((sum, r) => sum + (r.amount || 0), 0);
-  const totalAgentRevenue = landRents.filter(r => r.status === 'paid').reduce((sum, r) => sum + (r.amount || 0), 0);
-
+  // Agent weekly revenue = paid rentals created this week
+  const weeklyPaidRentals = weeklyRentals.filter(r => r.status === 'paid');
+  const agentWeeklyRevenue = weeklyPaidRentals.reduce((sum, r) => sum + (r.amount || 0), 0);
+  
+  // Total agent revenue = same as agentRevenue (from all paid rentals)
+  const totalAgentRevenue = agentRevenue;
+  
   res.json({
     totalRevenue,
     weeklyRevenue,
     agentRevenue,
-    agentWeeklyRevenue: weeklyAgentRevenue,
+    agentWeeklyRevenue,
     totalAgentRevenue,
   });
 };
