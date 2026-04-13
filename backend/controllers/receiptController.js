@@ -210,8 +210,54 @@ const clearReceipts = async (req, res) => {
    GENERATE PDF FROM HTML
 ========================= */
 
-// Function to find Chrome executable path
 const getExecutablePath = () => {
+  // For Render.com (Linux)
+  if (process.env.RENDER) {
+    // After postinstall, Chrome is installed in node_modules/.cache/puppeteer
+    const possiblePaths = [
+      '/opt/render/project/src/backend/node_modules/puppeteer-core/.local-chromium/linux-*/chrome-linux/chrome',
+      '/opt/render/project/src/backend/node_modules/puppeteer/.local-chromium/linux-*/chrome-linux/chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome'
+    ];
+    
+    // Check if any path exists (using pattern matching for the version folder)
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Look for Chrome in puppeteer cache
+    const cachePath = '/opt/render/project/src/backend/node_modules/.cache/puppeteer';
+    if (fs.existsSync(cachePath)) {
+      const folders = fs.readdirSync(cachePath);
+      for (const folder of folders) {
+        const chromePath = path.join(cachePath, folder, 'chrome-linux', 'chrome');
+        if (fs.existsSync(chromePath)) {
+          return chromePath;
+        }
+      }
+    }
+    
+    for (const p of possiblePaths) {
+      // Handle wildcard paths
+      if (p.includes('*')) {
+        const baseDir = p.substring(0, p.lastIndexOf('/'));
+        if (fs.existsSync(baseDir)) {
+          const folders = fs.readdirSync(baseDir);
+          for (const folder of folders) {
+            const fullPath = path.join(baseDir, folder, 'chrome-linux', 'chrome');
+            if (fs.existsSync(fullPath)) {
+              return fullPath;
+            }
+          }
+        }
+      } else if (fs.existsSync(p)) {
+        return p;
+      }
+    }
+  }
+  
   // For Windows (local development)
   const windowsPaths = [
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -221,22 +267,6 @@ const getExecutablePath = () => {
   for (const p of windowsPaths) {
     if (fs.existsSync(p)) {
       return p;
-    }
-  }
-  
-  // For Render.com (Linux)
-  if (process.env.RENDER) {
-    // Try common paths on Render
-    const linuxPaths = [
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/google-chrome'
-    ];
-    for (const p of linuxPaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
     }
   }
   
