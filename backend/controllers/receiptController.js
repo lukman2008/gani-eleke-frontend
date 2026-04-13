@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const handlebars = require('handlebars');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 
 const formatCurrency = (amount) => {
   return `NGN${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -14,7 +14,6 @@ const formatNumber = (num) => {
 
 // Dynamic logo URL function - works everywhere
 const getLogoUrl = () => {
-    // Always use the online URL for PDF generation (works both locally and on Render)
     return 'https://gani-eleke-project.vercel.app/frontend/img/image.jpg';
 };
 
@@ -210,82 +209,17 @@ const clearReceipts = async (req, res) => {
    GENERATE PDF FROM HTML
 ========================= */
 
-const getExecutablePath = () => {
-  // For Render.com (Linux)
-  if (process.env.RENDER) {
-    // After postinstall, Chrome is installed in node_modules/.cache/puppeteer
-    const possiblePaths = [
-      '/opt/render/project/src/backend/node_modules/puppeteer-core/.local-chromium/linux-*/chrome-linux/chrome',
-      '/opt/render/project/src/backend/node_modules/puppeteer/.local-chromium/linux-*/chrome-linux/chrome',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/google-chrome'
-    ];
-    
-    // Check if any path exists (using pattern matching for the version folder)
-    const fs = require('fs');
-    const path = require('path');
-    
-    // Look for Chrome in puppeteer cache
-    const cachePath = '/opt/render/project/src/backend/node_modules/.cache/puppeteer';
-    if (fs.existsSync(cachePath)) {
-      const folders = fs.readdirSync(cachePath);
-      for (const folder of folders) {
-        const chromePath = path.join(cachePath, folder, 'chrome-linux', 'chrome');
-        if (fs.existsSync(chromePath)) {
-          return chromePath;
-        }
-      }
-    }
-    
-    for (const p of possiblePaths) {
-      // Handle wildcard paths
-      if (p.includes('*')) {
-        const baseDir = p.substring(0, p.lastIndexOf('/'));
-        if (fs.existsSync(baseDir)) {
-          const folders = fs.readdirSync(baseDir);
-          for (const folder of folders) {
-            const fullPath = path.join(baseDir, folder, 'chrome-linux', 'chrome');
-            if (fs.existsSync(fullPath)) {
-              return fullPath;
-            }
-          }
-        }
-      } else if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-  }
-  
-  // For Windows (local development)
-  const windowsPaths = [
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
-  ];
-  
-  for (const p of windowsPaths) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-  
-  return null;
-};
-
 const generatePDFFromHTML = async (htmlContent) => {
-  // Use the full puppeteer package (not core)
-  const puppeteer = require('puppeteer');
-  
   const browser = await puppeteer.launch({
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   });
   
   const page = await browser.newPage();
   await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-  const pdf = await page.pdf({ format: 'A4', printBackground: true });
+  const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
   await browser.close();
-  return pdf;
+  
+  return pdfBuffer;
 };
 
 /* =========================
@@ -352,9 +286,14 @@ const getReceiptPdfCompany = async (receipt, res) => {
       balanceAmount: formatCurrency(balance)
     });
     
-    const pdf = await generatePDFFromHTML(html);
+    const pdfBuffer = await generatePDFFromHTML(html);
+    
+    // Set proper headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
-    res.end(pdf);
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-company.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
+    res.end(pdfBuffer);
   } catch (error) {
     console.error('PDF Generation Error:', error);
     res.status(500).json({ error: 'PDF generation failed', details: error.message });
@@ -413,9 +352,14 @@ const getReceiptPdfCustomer = async (receipt, res) => {
       balanceAmount: formatCurrency(balance)
     });
     
-    const pdf = await generatePDFFromHTML(html);
+    const pdfBuffer = await generatePDFFromHTML(html);
+    
+    // Set proper headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
-    res.end(pdf);
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-customer.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
+    res.end(pdfBuffer);
   } catch (error) {
     console.error('PDF Generation Error:', error);
     res.status(500).json({ error: 'PDF generation failed', details: error.message });
