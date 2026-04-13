@@ -25,19 +25,32 @@
         ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
     <script>
-        const getApiBaseUrl = () => {
-            const hostname = window.location.hostname;
-            const port = window.location.port;
-            console.log('Current hostname:', hostname, 'port:', port);
-            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') return 'http://localhost:5000';
-            if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') return '';
-            if (hostname.includes('vercel.app')) return '';
-            return 'https://gani-eleke-backend.onrender.com';
-        };
-        const API_BASE_URL = getApiBaseUrl();
-        console.log('API Base URL:', API_BASE_URL || 'relative path');
-        const getApiUrl = (path) => { const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'; return `${basePath}${path}`; };
-    </script>
+    const getApiBaseUrl = () => {
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+        console.log('Current hostname:', hostname, 'port:', port);
+        
+        // Local development with Live Server on port 5500
+        if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
+            return 'http://localhost:5000';
+        }
+        // Local development with backend on port 5000
+        if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
+            return '';
+        }
+        
+        // For ALL other cases (Vercel, production) - use Render backend directly
+        return 'https://gani-eleke-backend.onrender.com';
+    };
+    
+    const API_BASE_URL = getApiBaseUrl();
+    console.log('API Base URL:', API_BASE_URL);
+    
+    const getApiUrl = (path) => { 
+        const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'; 
+        return `${basePath}${path}`;
+    };
+</script>
 </head>
 <body class="bg-gray-100 font-sans antialiased" x-data="{
     page: 'dashboard',
