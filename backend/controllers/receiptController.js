@@ -209,9 +209,14 @@ const clearReceipts = async (req, res) => {
    GENERATE PDF FROM HTML
 ========================= */
 
+/* =========================
+   GENERATE PDF FROM HTML
+========================= */
+
 const generatePDFFromHTML = async (htmlContent) => {
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    headless: 'new'  // Use new Headless mode (fixes deprecation warning)
   });
   
   const page = await browser.newPage();
