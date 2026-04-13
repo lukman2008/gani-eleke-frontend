@@ -212,19 +212,32 @@ const clearReceipts = async (req, res) => {
    GENERATE PDF FROM HTML
 ========================= */
 
-const generatePDFFromHTML = async (htmlContent) => {
-  let executablePath;
-  const possiblePaths = [
+const getExecutablePath = () => {
+  // For Windows
+  const windowsPaths = [
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    process.env.CHROME_PATH
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
   ];
   
-  for (const path of possiblePaths) {
-    if (path && fs.existsSync(path)) {
-      executablePath = path;
-      break;
+  for (const p of windowsPaths) {
+    if (fs.existsSync(p)) {
+      return p;
     }
+  }
+  
+  // For Render.com (Linux)
+  if (process.env.RENDER) {
+    return '/usr/bin/chromium-browser';
+  }
+  
+  return null;
+};
+
+const generatePDFFromHTML = async (htmlContent) => {
+  const executablePath = getExecutablePath();
+  
+  if (!executablePath) {
+    throw new Error('Chrome/Chromium not found. Please install Chrome or specify the path.');
   }
   
   const browser = await puppeteer.launch({
@@ -292,7 +305,7 @@ const getReceiptPdfCompany = async (receipt, res) => {
     vehicleNo: receipt.vehicle || '',
     items,
     offloadingAmount: formatNumber(offloadingAmount),
-    debtAmount: '',  // Empty - won't show amount
+    debtAmount: '',
     profits,
     totalProfit: formatCurrency(totalProfit),
     creditAmount: formatCurrency(totalCredit),
@@ -347,7 +360,7 @@ const getReceiptPdfCustomer = async (receipt, res) => {
     vehicleNo: receipt.vehicle || '',
     items,
     offloadingAmount: formatNumber(offloadingAmount),
-    debtAmount: '',  // Empty - won't show amount
+    debtAmount: '',
     creditAmount: formatCurrency(totalCredit),
     debitAmount: formatCurrency(debitTotal),
     balanceAmount: formatCurrency(balance)
