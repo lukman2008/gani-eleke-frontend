@@ -152,12 +152,17 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.pdf`;
+                // Change extension from .pdf to .html
+                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.html`;
                 a.click();
                 URL.revokeObjectURL(url);
                 this.showModal = false;
-            } else { alert('Failed to generate PDF'); }
-        } catch (err) { alert('Network error: ' + err.message); }
+            } else { 
+                alert('Failed to generate receipt'); 
+            }
+        } catch (err) { 
+            alert('Network error: ' + err.message); 
+        }
     },
     
     // Land Rent Functions

@@ -11,7 +11,7 @@ const formatNumber = (num) => {
   return num.toLocaleString('en-US');
 };
 
-// Dynamic logo URL function - works everywhere
+// Dynamic logo URL function
 const getLogoUrl = () => {
     return 'https://gani-eleke-project.vercel.app/frontend/img/image.jpg';
 };
@@ -19,13 +19,6 @@ const getLogoUrl = () => {
 // Read HTML templates
 const customerTemplatePath = path.join(__dirname, '../receipt-templates/customer-receipt.html');
 const companyTemplatePath = path.join(__dirname, '../receipt-templates/company-receipt.html');
-
-if (!fs.existsSync(customerTemplatePath)) {
-  console.error('Customer template not found at:', customerTemplatePath);
-}
-if (!fs.existsSync(companyTemplatePath)) {
-  console.error('Company template not found at:', companyTemplatePath);
-}
 
 const customerTemplate = fs.readFileSync(customerTemplatePath, 'utf8');
 const companyTemplate = fs.readFileSync(companyTemplatePath, 'utf8');
@@ -204,40 +197,13 @@ const clearReceipts = async (req, res) => {
   res.json({ message: 'All receipts and balances have been cleared.' });
 };
 
-/* =========================  
-   GENERATE IMAGE USING API (No Puppeteer)
-========================= */
-
-const generateImageFromHTML = async (htmlContent) => {
-  // Use a free HTML to image API
-  const response = await fetch('https://hcti.io/v1/image', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      html: htmlContent,
-      css: '',
-      google_fonts: 'Inter'
-    })
-  });
-  
-  const data = await response.json();
-  
-  // Fetch the image from the URL
-  const imageResponse = await fetch(data.url);
-  const imageBuffer = await imageResponse.buffer();
-  
-  return imageBuffer;
-};
-
 /* =========================
-   COMPANY COPY IMAGE
+   GENERATE HTML (instead of PDF/Image)
 ========================= */
 
 const getReceiptPdfCompany = async (receipt, res) => {
   try {
-    console.log('Generating Company Receipt Image for receipt:', receipt._id);
+    console.log('Generating Company Receipt HTML for receipt:', receipt._id);
     
     const date = new Date(receipt.date || Date.now());
     const day = date.getDate().toString().padStart(2, '0');
@@ -295,26 +261,19 @@ const getReceiptPdfCompany = async (receipt, res) => {
       balanceAmount: formatCurrency(balance)
     });
     
-    const imageBuffer = await generateImageFromHTML(html);
-    
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-company.png"`);
-    res.setHeader('Content-Length', imageBuffer.length);
-    
-    res.end(imageBuffer);
+    // Send as HTML file
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-company.html"`);
+    res.send(html);
   } catch (error) {
-    console.error('Image Generation Error:', error);
-    res.status(500).json({ error: 'Image generation failed', details: error.message });
+    console.error('HTML Generation Error:', error);
+    res.status(500).json({ error: 'HTML generation failed', details: error.message });
   }
 };
 
-/* =========================
-   CUSTOMER COPY IMAGE
-========================= */
-
 const getReceiptPdfCustomer = async (receipt, res) => {
   try {
-    console.log('Generating Customer Receipt Image for receipt:', receipt._id);
+    console.log('Generating Customer Receipt HTML for receipt:', receipt._id);
     
     const date = new Date(receipt.date || Date.now());
     const day = date.getDate().toString().padStart(2, '0');
@@ -360,22 +319,15 @@ const getReceiptPdfCustomer = async (receipt, res) => {
       balanceAmount: formatCurrency(balance)
     });
     
-    const imageBuffer = await generateImageFromHTML(html);
-    
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-customer.png"`);
-    res.setHeader('Content-Length', imageBuffer.length);
-    
-    res.end(imageBuffer);
+    // Send as HTML file
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-customer.html"`);
+    res.send(html);
   } catch (error) {
-    console.error('Image Generation Error:', error);
-    res.status(500).json({ error: 'Image generation failed', details: error.message });
+    console.error('HTML Generation Error:', error);
+    res.status(500).json({ error: 'HTML generation failed', details: error.message });
   }
 };
-
-/* =========================
-   MAIN IMAGE ROUTE
-========================= */
 
 const getReceiptPdf = async (req, res) => {
   const receipt = await Receipt.findById(req.params.id);
