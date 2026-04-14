@@ -30,16 +30,13 @@
         const port = window.location.port;
         console.log('Current hostname:', hostname, 'port:', port);
         
-        // Local development with Live Server on port 5500
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
             return 'http://localhost:5000';
         }
-        // Local development with backend on port 5000
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
             return '';
         }
         
-        // For ALL other cases (Vercel, production) - use Render backend directly
         return 'https://gani-eleke-backend.onrender.com';
     };
     
@@ -62,7 +59,7 @@
     
     // Receipt data
     receipts: [], search: '', showModal: false, currentReceipt: null,
-    customerName: '', customerPhone: '', customerAddress: '', vehicleNo: '', expenses: '', debtAmount: '',
+    customerName: '', customerPhone: '', customerAddress: '', vehicleNo: '', expenses: '', debtAmount: '', companyName: '',
     items: [{ description: '', quantity: '', dust: '', rate: '' }],
     
     // Land Rent data
@@ -74,7 +71,6 @@
     toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
     logout() { 
     localStorage.removeItem('token'); 
-    // Check if we're on Vercel (production) or local
         if (window.location.hostname.includes('vercel.app')) {
             window.location.href = '/frontend/index.html';
         } else {
@@ -128,7 +124,7 @@
         const less = [];
         if (this.expenses && parseFloat(this.expenses) > 0) less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
         if (this.debtAmount && parseFloat(this.debtAmount) > 0) less.push({ description: 'Debt Deduction', amount: parseFloat(this.debtAmount), date: new Date() });
-        const data = { customerName: this.customerName, customerPhone: this.customerPhone, customerAddress: this.customerAddress, vehicle: this.vehicleNo, receiptTitle: 'Sales Receipt', credits: credits, less: less, companyInfo: { name: 'Africa Steel Ltd', email: 'ganiolaiya123@gmail.com', phone: '08033281397, 08052944592, 08062514308', address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' }, creditorName: 'Gani Eleke', creditorPhone: '08033281397' };
+        const data = { customerName: this.customerName, customerPhone: this.customerPhone, customerAddress: this.customerAddress, vehicle: this.vehicleNo, companyName: this.companyName, receiptTitle: 'Sales Receipt', credits: credits, less: less, companyInfo: { name: 'Africa Steel Ltd', email: 'ganiolaiya123@gmail.com', phone: '08033281397, 08052944592, 08062514308', address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' }, creditorName: 'Gani Eleke', creditorPhone: '08033281397' };
         try {
             const res = await fetch(getApiUrl('/receipts'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(data) });
             if (res.ok) {
@@ -136,7 +132,7 @@
                 this.receipts.unshift(receipt);
                 this.currentReceipt = receipt;
                 this.showModal = true;
-                this.customerName = ''; this.customerPhone = ''; this.customerAddress = ''; this.vehicleNo = ''; this.expenses = ''; this.debtAmount = '';
+                this.customerName = ''; this.customerPhone = ''; this.customerAddress = ''; this.vehicleNo = ''; this.expenses = ''; this.debtAmount = ''; this.companyName = '';
                 this.items = [{ description: '', quantity: '', dust: '', rate: '' }];
                 await this.loadSummary();
             } else { const error = await res.json(); alert(error.message || 'Error creating receipt'); }
@@ -152,7 +148,6 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                // Change extension from .pdf to .html
                 a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.html`;
                 a.click();
                 URL.revokeObjectURL(url);
@@ -206,10 +201,8 @@
 }" x-init="async function() { await loadSummary(); await loadReceipts(); await loadLandRents(); }()">
 
     <div class="flex h-screen overflow-hidden">
-        <!-- Mobile Menu Toggle Button -->
         <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden"><i class="fa-solid fa-bars text-xl"></i></button>
         
-        <!-- Sidebar -->
         <aside class="w-64 bg-slate-900 text-white flex flex-col shrink-0 transition-transform duration-300 ease-in-out z-40" :class="mobileMenuOpen ? 'sidebar-open fixed inset-y-0 left-0' : 'sidebar-collapsed hidden md:flex'">
             <div class="p-6 flex items-center gap-3 border-b border-slate-800">
                 <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center p-1 font-bold text-white shadow-lg overflow-hidden border border-white/10"><img src="/frontend/img/image.jpg" alt="Gani Eleke Logo" class="w-full h-full object-contain"></div>
@@ -229,15 +222,12 @@
 
         <main class="flex-1 overflow-y-auto p-4 md:p-8 main-content">
             
-            <!-- ============ DASHBOARD PAGE ============ -->
+            <!-- DASHBOARD PAGE -->
             <template x-if="page === 'dashboard'">
                 <div>
                     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 uppercase tracking-wide">Dashboard Overview</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Receipts</p><p class="text-2xl md:text-3xl font-black text-green-600 mt-1" x-text="summary.totalReceipts"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Credits</p><p class="text-xl md:text-3xl font-black text-green-500 mt-1" x-text="'₦' + summary.totalCredit.toLocaleString()"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Debits</p><p class="text-xl md:text-3xl font-black text-blue-600 mt-1" x-text="'₦' + summary.totalDebit.toLocaleString()"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Balance</p><p class="text-xl md:text-3xl font-black text-orange-600 mt-1" x-text="'₦' + summary.totalBalance.toLocaleString()"></p></div>
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Land Revenue This Week</p><p class="text-xl md:text-3xl font-black text-purple-600 mt-1" x-text="'₦' + summary.landRevenueThisWeek.toLocaleString()"></p></div>
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Land Revenue</p><p class="text-xl md:text-3xl font-black text-indigo-600 mt-1" x-text="'₦' + summary.totalLandRevenue.toLocaleString()"></p></div>
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue</p><p class="text-xl md:text-3xl font-black text-teal-600 mt-1" x-text="'₦' + summary.agentRevenue.toLocaleString()"></p></div>
@@ -247,7 +237,7 @@
                 </div>
             </template>
 
-            <!-- ============ RECEIPT PAGE ============ -->
+            <!-- RECEIPT PAGE -->
             <template x-if="page === 'receipt'">
                 <div class="space-y-4 md:space-y-6">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -271,6 +261,7 @@
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Customer Phone</label><input type="tel" x-model="customerPhone" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"></div>
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Customer Address</label><input type="text" x-model="customerAddress" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"></div>
                                 <div><label class="text-xs font-bold uppercase text-slate-500">Vehicle No.</label><input type="text" x-model="vehicleNo" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base"></div>
+                                <div><label class="text-xs font-bold uppercase text-slate-500">Company Name</label><input type="text" x-model="companyName" class="w-full p-3 mt-1 bg-gray-50 border border-gray-200 rounded-lg text-sm md:text-base" placeholder="e.g., Africa Steel Ltd"></div>
                             </div>
                             <div class="border-t pt-4">
                                 <div class="flex justify-between items-center mb-3 flex-wrap gap-2"><label class="text-sm font-bold uppercase text-slate-600">Items Details</label><button type="button" @click="addItem()" class="text-blue-600 text-sm font-semibold hover:text-blue-800"><i class="fa-solid fa-plus mr-1"></i> Add Item</button></div>
@@ -310,7 +301,7 @@
                 </div>
             </template>
 
-            <!-- ============ LAND RENT PAGE ============ -->
+            <!-- LAND RENT PAGE -->
             <template x-if="page === 'landrent'">
                 <div class="space-y-4 md:space-y-6">
                     <div class="w-full bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100">
@@ -357,7 +348,7 @@
                 </div>
             </template>
 
-            <!-- ============ SETTINGS PAGE ============ -->
+            <!-- SETTINGS PAGE -->
             <template x-if="page === 'settings'">
                 <div class="space-y-4 md:space-y-6">
                     <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">

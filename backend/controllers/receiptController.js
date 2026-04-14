@@ -4,16 +4,18 @@ const path = require('path');
 const handlebars = require('handlebars');
 
 const formatCurrency = (amount) => {
-  return `NGN${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Remove the minus sign if amount is negative for display
+  const absAmount = Math.abs(amount);
+  return `NGN${absAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const formatNumber = (num) => {
   return num.toLocaleString('en-US');
 };
 
-// Dynamic logo URL function
+// Dynamic logo URL function - use new logo
 const getLogoUrl = () => {
-    return 'https://gani-eleke-project.vercel.app/frontend/img/image.jpg';
+    return 'https://gani-eleke-project.vercel.app/frontend/img/logo.jpeg';
 };
 
 // Read HTML templates
@@ -79,7 +81,7 @@ const computeReceipt = ({ customerName, credits = [], less = [], note }) => {
 ========================= */
 
 const createReceipt = async (req, res) => {
-  const { customerName, credits, less, note, ...rest } = req.body;
+  const { customerName, credits, less, note, companyName, ...rest } = req.body;
 
   if (!customerName || !credits?.length) {
     return res.status(400).json({ message: 'Customer name and credits required' });
@@ -90,6 +92,7 @@ const createReceipt = async (req, res) => {
   const receipt = await Receipt.create({
     ...rest,
     ...data,
+    companyName: companyName || 'Africa Steel Ltd',
     receiptNumber: `RCPT-${Date.now()}`,
     createdBy: req.user._id
   });
@@ -126,7 +129,7 @@ const updateReceipt = async (req, res) => {
     return res.status(404).json({ message: 'Receipt not found.' });
   }
 
-  const { companyInfo, receiptTitle, customerName, customerPhone, customerAddress, vehicle, creditorName, creditorPhone, credits, less, note, date } = req.body;
+  const { companyInfo, receiptTitle, customerName, customerPhone, customerAddress, vehicle, creditorName, creditorPhone, credits, less, note, date, companyName } = req.body;
   
   const data = computeReceipt({
     customerName: customerName || receipt.customerName,
@@ -144,6 +147,7 @@ const updateReceipt = async (req, res) => {
   if (creditorPhone) receipt.creditorPhone = creditorPhone;
   if (customerName) receipt.customerName = data.customerName;
   if (customerPhone) receipt.customerPhone = customerPhone;
+  if (companyName) receipt.companyName = companyName;
   
   receipt.credits = data.credits;
   receipt.less = data.less;
@@ -246,7 +250,7 @@ const getReceiptPdfCompany = async (receipt, res) => {
       day,
       month,
       year,
-      companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
+      companyName: receipt.companyName || receipt.companyInfo?.name || 'Africa Steel Ltd',
       customerName: receipt.customerName || '',
       customerAddress: receipt.customerAddress || '',
       customerPhone: receipt.customerPhone || '',
@@ -255,7 +259,7 @@ const getReceiptPdfCompany = async (receipt, res) => {
       offloadingAmount: formatNumber(offloadingAmount),
       debtAmount: '',
       profits,
-      totalProfit: formatCurrency(totalProfit),
+      totalProfit: formatCurrency(totalProfit > 0 ? totalProfit : 0),
       creditAmount: formatCurrency(totalCredit),
       debitAmount: formatCurrency(debitTotal),
       balanceAmount: formatCurrency(balance)
@@ -306,7 +310,7 @@ const getReceiptPdfCustomer = async (receipt, res) => {
       day,
       month,
       year,
-      companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
+      companyName: receipt.companyName || receipt.companyInfo?.name || 'Africa Steel Ltd',
       customerName: receipt.customerName || '',
       customerAddress: receipt.customerAddress || '',
       customerPhone: receipt.customerPhone || '',
