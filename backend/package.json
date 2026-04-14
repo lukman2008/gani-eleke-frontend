@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,7 +17,7 @@
     "mongodb": "^6.3.0",
     "mongoose": "^8.0.3",
     "pdfkit": "^0.14.0",
-    "puppeteer": "^21.6.0"
+    "puppeteer-core": "^21.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

@@ -209,14 +209,16 @@ const clearReceipts = async (req, res) => {
    GENERATE PDF FROM HTML
 ========================= */
 
-/* =========================
-   GENERATE PDF FROM HTML
-========================= */
-
 const generatePDFFromHTML = async (htmlContent) => {
+  const puppeteer = require('puppeteer-core');
+  
+  // On Render Docker, Chromium is installed at this path
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
+  
   const browser = await puppeteer.launch({
+    executablePath: executablePath,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    headless: 'new'  // Use new Headless mode (fixes deprecation warning)
+    headless: 'new'
   });
   
   const page = await browser.newPage();
