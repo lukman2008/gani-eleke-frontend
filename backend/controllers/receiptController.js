@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const handlebars = require('handlebars');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 const formatCurrency = (amount) => {
   return `NGN${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -205,15 +205,23 @@ const clearReceipts = async (req, res) => {
   res.json({ message: 'All receipts and balances have been cleared.' });
 };
 
-/* =========================
+/* =========================  
+   GENERATE PDF FROM HTML
+========================= */
+
+/* =========================  
    GENERATE PDF FROM HTML
 ========================= */
 
 const generatePDFFromHTML = async (htmlContent) => {
-  const puppeteer = require('puppeteer-core');
-  
+  // Use puppeteer-core (already required at top)
   // On Render Docker, Chromium is installed at this path
-  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || 
+    (process.platform === 'win32' 
+      ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+      : '/usr/bin/chromium');
+  
+  console.log('Using Chromium at:', executablePath);
   
   const browser = await puppeteer.launch({
     executablePath: executablePath,
