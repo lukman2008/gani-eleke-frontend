@@ -1,19 +1,37 @@
-﻿const PDFDocument = require('pdfkit');
-const Receipt = require('../models/Receipt');
+﻿const Receipt = require('../models/Receipt');
 const fs = require('fs');
 const path = require('path');
+const handlebars = require('handlebars');
 
 const formatCurrency = (amount) => {
-  return `₦${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `NGN${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const formatNumber = (num) => {
-  return Number(num).toLocaleString('en-US');
+  return num.toLocaleString('en-US');
 };
 
-const formatNumberNoComma = (num) => {
-  return Number(num).toString();
+// Dynamic logo URL function - works everywhere
+const getLogoUrl = () => {
+    return 'https://gani-eleke-project.vercel.app/frontend/img/image.jpg';
 };
+
+// Read HTML templates
+const customerTemplatePath = path.join(__dirname, '../receipt-templates/customer-receipt.html');
+const companyTemplatePath = path.join(__dirname, '../receipt-templates/company-receipt.html');
+
+if (!fs.existsSync(customerTemplatePath)) {
+  console.error('Customer template not found at:', customerTemplatePath);
+}
+if (!fs.existsSync(companyTemplatePath)) {
+  console.error('Company template not found at:', companyTemplatePath);
+}
+
+const customerTemplate = fs.readFileSync(customerTemplatePath, 'utf8');
+const companyTemplate = fs.readFileSync(companyTemplatePath, 'utf8');
+
+const compiledCustomerTemplate = handlebars.compile(customerTemplate);
+const compiledCompanyTemplate = handlebars.compile(companyTemplate);
 
 /* =========================
    COMPUTATION LOGIC
@@ -186,550 +204,190 @@ const clearReceipts = async (req, res) => {
   res.json({ message: 'All receipts and balances have been cleared.' });
 };
 
-/* =========================
-   HELPER: Draw Company Header
+/* =========================  
+   GENERATE IMAGE USING API (No Puppeteer)
 ========================= */
 
-const drawCompanyHeader = (doc, receipt) => {
-  const pageWidth = doc.page.width;
-  const leftX = 50;
-  const rightX = 350;
+const generateImageFromHTML = async (htmlContent) => {
+  // Use a free HTML to image API
+  const response = await fetch('https://hcti.io/v1/image', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      html: htmlContent,
+      css: '',
+      google_fonts: 'Inter'
+    })
+  });
   
-  let y = 40;
+  const data = await response.json();
   
-  // Top colored bars (matching the flex bars in HTML)
-  doc.rect(leftX, y, (pageWidth - 100) / 2, 8).fill('#DC2626'); // Red bar
-  doc.rect(leftX + (pageWidth - 100) / 2, y, ((pageWidth - 100) * 2/3), 8).fill('#1E3A8A'); // Blue bar
+  // Fetch the image from the URL
+  const imageResponse = await fetch(data.url);
+  const imageBuffer = await imageResponse.buffer();
   
-  y += 20;
-  
-  // Logo circle placeholder (if you want to add logo functionality later)
-  // doc.circle(leftX + 32, y + 32, 32).fill('#E5E7EB');
-  
-  // RC Number
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#4B5563')
-     .text('RC:2197931', leftX, y);
-  
-  y += 12;
-  
-  // Main title
-  doc.fontSize(30).font('Helvetica-Bold').fillColor('#1E3A8A')
-     .text('GANI ELEKE', leftX, y);
-  
-  // Subtitle with letter spacing effect
-  y += 35;
-  doc.fontSize(18).font('Helvetica').fillColor('#6B7280')
-     .text('E N T E R P R I S E S', leftX, y, { characterSpacing: 3 });
-  
-  y += 30;
-  
-  // Description text
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#DC2626')
-     .text('Dealers and Suppliers of all kind of:', leftX, y);
-  
-  y += 12;
-  doc.font('Helvetica').fillColor('#000000')
-     .text('Electric Motor, Pumping Machine,', leftX, y);
-  
-  y += 12;
-  doc.text('Gear Motor and scrap etc.', leftX, y);
-  
-  // Right side - RECEIPT title
-  doc.fontSize(36).font('Helvetica-Bold').fillColor('#1F2937')
-     .text('RECEIPT', rightX + 20, 60);
-  
-  // Office info on right
-  let infoY = 100;
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#DC2626')
-     .text('Office Address:', rightX, infoY);
-  
-  infoY += 12;
-  doc.font('Helvetica').fillColor('#000000')
-     .text('Line11, Shop 1, Owode Onirin,', rightX, infoY);
-  
-  infoY += 12;
-  doc.text('Ikorodu road, Lagos.', rightX, infoY);
-  
-  infoY += 16;
-  doc.font('Helvetica-Bold').fillColor('#DC2626')
-     .text('Telephone:', rightX, infoY);
-  
-  infoY += 12;
-  doc.font('Helvetica').fillColor('#000000')
-     .text('08033281397, 08052944592,', rightX, infoY);
-  
-  infoY += 12;
-  doc.text('08062514308', rightX, infoY);
-  
-  infoY += 16;
-  doc.font('Helvetica-Bold').fillColor('#DC2626')
-     .text('E-mail:', rightX, infoY);
-  
-  infoY += 12;
-  doc.font('Helvetica').fillColor('#000000')
-     .text('ganiolaiya123@gmail.com', rightX, infoY);
-  
-  // Date boxes
-  const date = receipt.date || new Date();
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = String(date.getFullYear()).slice(-2);
-  
-  let dateX = rightX + 80;
-  let dateY = infoY + 30;
-  
-  // DD box
-  doc.rect(dateX, dateY, 40, 20).stroke('#1E3A8A');
-  doc.rect(dateX, dateY, 20, 20).fill('#1E3A8A');
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('DD', dateX + 4, dateY + 6);
-  doc.fontSize(10).font('Helvetica').fillColor('#000000')
-     .text(day, dateX + 24, dateY + 5);
-  
-  // MM box
-  dateX += 45;
-  doc.rect(dateX, dateY, 40, 20).stroke('#1E3A8A');
-  doc.rect(dateX, dateY, 20, 20).fill('#1E3A8A');
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('MM', dateX + 3, dateY + 6);
-  doc.fontSize(10).font('Helvetica').fillColor('#000000')
-     .text(month, dateX + 24, dateY + 5);
-  
-  // YY box
-  dateX += 45;
-  doc.rect(dateX, dateY, 45, 20).stroke('#1E3A8A');
-  doc.rect(dateX, dateY, 20, 20).fill('#1E3A8A');
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('YY', dateX + 4, dateY + 6);
-  doc.fontSize(10).font('Helvetica').fillColor('#000000')
-     .text(year, dateX + 24, dateY + 5);
-  
-  return 240; // Return Y position for next section
+  return imageBuffer;
 };
 
 /* =========================
-   HELPER: Draw Customer Info
-========================= */
-
-const drawCustomerInfo = (doc, receipt, startY) => {
-  const leftX = 50;
-  const pageWidth = doc.page.width;
-  const fullWidth = pageWidth - 100;
-  
-  let y = startY;
-  
-  // Company line
-  doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
-     .text('Company: ', leftX, y, { continued: true })
-     .font('Helvetica').fontSize(14)
-     .text(receipt.companyInfo?.name || 'Africa Steel Ltd');
-  
-  y += 30;
-  
-  // TO box
-  doc.rect(leftX, y, fullWidth, 30).stroke('#1E3A8A');
-  doc.rect(leftX, y, 80, 30).fill('#1E3A8A');
-  doc.fontSize(12).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('TO', leftX + 30, y + 8);
-  doc.fontSize(12).font('Helvetica').fillColor('#000000')
-     .text(receipt.customerName || '', leftX + 95, y + 8);
-  
-  y += 35;
-  
-  // ADDRESS box
-  doc.rect(leftX, y, fullWidth, 30).stroke('#1E3A8A');
-  doc.rect(leftX, y, 80, 30).fill('#1E3A8A');
-  doc.fontSize(12).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('ADDRESS', leftX + 12, y + 8);
-  doc.fontSize(12).font('Helvetica').fillColor('#000000')
-     .text(receipt.customerAddress || '', leftX + 95, y + 8);
-  
-  y += 40;
-  
-  // TEL and VEHICLE boxes
-  const halfWidth = (fullWidth - 15) / 2;
-  
-  // TEL box
-  doc.rect(leftX, y, halfWidth, 30).stroke('#1E3A8A');
-  doc.rect(leftX, y, 50, 30).fill('#1E3A8A');
-  doc.fontSize(12).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('TEL:', leftX + 12, y + 8);
-  doc.fontSize(12).font('Helvetica').fillColor('#000000')
-     .text(receipt.customerPhone || '', leftX + 65, y + 8);
-  
-  // VEHICLE box
-  doc.rect(leftX + halfWidth + 15, y, halfWidth, 30).stroke('#1E3A8A');
-  doc.rect(leftX + halfWidth + 15, y, 80, 30).fill('#1E3A8A');
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#FFFFFF')
-     .text('VEHICLE No.', leftX + halfWidth + 20, y + 8);
-  doc.fontSize(12).font('Helvetica').fillColor('#000000')
-     .text(receipt.vehicle || '', leftX + halfWidth + 105, y + 8);
-  
-  return y + 50;
-};
-
-/* =========================
-   COMPANY COPY PDF
+   COMPANY COPY IMAGE
 ========================= */
 
 const getReceiptPdfCompany = async (receipt, res) => {
-  const doc = new PDFDocument({ 
-    margin: 50,
-    size: 'A4',
-    bufferPages: true
-  });
-  
-  doc.pipe(res);
-  
-  const pageWidth = doc.page.width;
-  const leftX = 50;
-  const rightX = 350;
-  const fullWidth = pageWidth - 100;
-  
-  // Draw header
-  let y = drawCompanyHeader(doc, receipt);
-  
-  // Draw customer info
-  y = drawCustomerInfo(doc, receipt, y);
-  
-  y += 20;
-  
-  // ========== TABLE HEADER ==========
-  const tableTop = y;
-  const rowHeight = 25;
-  
-  // Table header background
-  doc.rect(leftX, y, fullWidth, rowHeight).fill('#1E3A8A');
-  
-  // Column positions (adjust to match HTML template)
-  const col1 = leftX + 5;        // Items Details
-  const col2 = leftX + 160;      // Dust
-  const col3 = leftX + 210;      // Qty
-  const col4 = leftX + 255;      // I-Rate
-  const col5 = leftX + 310;      // F-Rate
-  const col6 = leftX + 375;      // I-Amount
-  const col7 = leftX + 455;      // F-Amount
-  
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#FFFFFF');
-  doc.text('Items Details', col1, y + 8);
-  doc.text('Dust', col2, y + 8);
-  doc.text('Qty', col3, y + 8);
-  doc.text('I-Rate', col4, y + 8);
-  doc.text('F-Rate', col5, y + 8);
-  doc.text('I-Amount ₦', col6, y + 8);
-  doc.text('F-Amount ₦', col7, y + 8);
-  
-  y += rowHeight;
-  
-  // ========== TABLE ROWS ==========
-  let totalProfit = 0;
-  let totalCredit = 0;
-  
-  receipt.credits.forEach((item, index) => {
-    // Alternating row colors
-    if (index % 2 === 0) {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#F9FAFB');
-    } else {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#E5E7EB');
-    }
+  try {
+    console.log('Generating Company Receipt Image for receipt:', receipt._id);
     
-    const iAmount = item.qty * (item.initialRate || item.rate);
-    const fAmount = (item.qty * item.rate) - (item.dust || 0);
-    totalCredit += fAmount;
-    totalProfit += (fAmount - iAmount);
+    const date = new Date(receipt.date || Date.now());
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2);
     
-    doc.fontSize(9).font('Helvetica').fillColor('#000000');
-    doc.text(item.description || '', col1, y + 8, { width: 150 });
-    doc.text(`${formatNumber(item.dust || 0)}KG`, col2, y + 8);
-    doc.text(formatNumber(item.qty), col3, y + 8);
-    doc.text(formatNumber(item.initialRate || item.rate), col4, y + 8);
-    doc.text(formatNumber(item.rate), col5, y + 8);
-    doc.text(formatNumber(iAmount), col6, y + 8);
-    doc.text(formatNumber(fAmount), col7, y + 8);
+    let totalCredit = 0;
+    let totalProfit = 0;
+    const profits = [];
     
-    y += rowHeight;
-  });
-  
-  y += 15;
-  
-  // ========== DEDUCTIONS TABLE ==========
-  const deductionsTop = y;
-  
-  // Deductions header
-  doc.rect(leftX, y, fullWidth, rowHeight).fill('#1E3A8A');
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF');
-  doc.text('Descriptions', leftX + 10, y + 8);
-  doc.text('Amount ₦', rightX + 100, y + 8);
-  
-  y += rowHeight;
-  
-  // Deductions rows
-  receipt.less.forEach((item, index) => {
-    if (index % 2 === 0) {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#F9FAFB');
-    } else {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#E5E7EB');
-    }
+    const items = receipt.credits.map((item, index) => {
+      const iAmount = item.qty * (item.initialRate || item.rate);
+      const fAmount = (item.qty * item.rate) - (item.dust || 0);
+      const profit = fAmount - iAmount;
+      totalCredit += fAmount;
+      totalProfit += profit;
+      if (profit !== 0) {
+        profits.push({ name: item.description, amount: formatCurrency(profit) });
+      }
+      return {
+        description: item.description,
+        dust: item.dust || 0,
+        qty: item.qty,
+        iRate: item.initialRate || item.rate,
+        fRate: item.rate,
+        iAmount: formatNumber(iAmount),
+        fAmount: formatNumber(fAmount),
+        odd: index % 2 === 1
+      };
+    });
     
-    doc.fontSize(10).font('Helvetica').fillColor('#000000');
-    doc.text(item.description || '', leftX + 10, y + 8);
-    doc.text(formatNumber(item.amount), rightX + 100, y + 8);
+    const offloadingAmount = receipt.less.find(l => l.description === 'Offloading')?.amount || 0;
+    const debitTotal = receipt.debitTotal || 0;
+    const balance = receipt.balance || 0;
     
-    y += rowHeight;
-  });
-  
-  // Add Debt row if not present
-  const hasDebt = receipt.less.some(l => l.description?.toLowerCase() === 'debt');
-  if (!hasDebt) {
-    if (receipt.less.length % 2 === 0) {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#F9FAFB');
-    } else {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#E5E7EB');
-    }
-    doc.fontSize(10).font('Helvetica').fillColor('#000000');
-    doc.text('Debt', leftX + 10, y + 8);
-    y += rowHeight;
+    const logoUrl = getLogoUrl();
+    
+    const html = compiledCompanyTemplate({
+      logoUrl,
+      day,
+      month,
+      year,
+      companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
+      customerName: receipt.customerName || '',
+      customerAddress: receipt.customerAddress || '',
+      customerPhone: receipt.customerPhone || '',
+      vehicleNo: receipt.vehicle || '',
+      items,
+      offloadingAmount: formatNumber(offloadingAmount),
+      debtAmount: '',
+      profits,
+      totalProfit: formatCurrency(totalProfit),
+      creditAmount: formatCurrency(totalCredit),
+      debitAmount: formatCurrency(debitTotal),
+      balanceAmount: formatCurrency(balance)
+    });
+    
+    const imageBuffer = await generateImageFromHTML(html);
+    
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-company.png"`);
+    res.setHeader('Content-Length', imageBuffer.length);
+    
+    res.end(imageBuffer);
+  } catch (error) {
+    console.error('Image Generation Error:', error);
+    res.status(500).json({ error: 'Image generation failed', details: error.message });
   }
-  
-  y += 20;
-  
-  // ========== TOTALS SECTION ==========
-  const totalsX = rightX + 50;
-  
-  // Profit section (left side)
-  doc.fontSize(10).font('Helvetica').fillColor('#000000');
-  doc.text('Profit Total:', leftX, y);
-  doc.font('Helvetica-Bold')
-     .text(formatCurrency(totalProfit), leftX + 70, y);
-  
-  // Right side totals
-  doc.font('Helvetica').fillColor('#000000');
-  doc.text('Profit:', totalsX, y - 25);
-  doc.font('Helvetica-Bold')
-     .text(formatCurrency(totalProfit), totalsX + 50, y - 25);
-  
-  doc.font('Helvetica').fillColor('#000000');
-  doc.text('Credit:', totalsX, y - 10);
-  doc.font('Helvetica-Bold')
-     .text(formatCurrency(totalCredit), totalsX + 50, y - 10);
-  
-  doc.font('Helvetica').fillColor('#000000');
-  doc.text('Debit:', totalsX, y + 5);
-  doc.font('Helvetica-Bold')
-     .text(formatCurrency(receipt.debitTotal), totalsX + 50, y + 5);
-  
-  y += 35;
-  
-  // Balance with red underline
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#1E3A8A');
-  doc.text('Balance:', totalsX, y);
-  doc.text(formatCurrency(receipt.balance), totalsX + 70, y);
-  
-  // Red underline
-  y += 18;
-  doc.moveTo(totalsX, y)
-     .lineTo(totalsX + 200, y)
-     .lineWidth(3)
-     .stroke('#DC2626');
-  
-  y += 50;
-  
-  // Thank you message
-  doc.fontSize(11).font('Helvetica-Oblique').fillColor('#1F2937')
-     .text('Thank you for doing business with us.', leftX, y, { 
-       align: 'center', 
-       width: fullWidth 
-     });
-  
-  // Add watermark if logo exists
-  if (receipt.companyInfo?.logo) {
-    // You can implement logo watermark here if needed
-  }
-  
-  doc.end();
 };
 
 /* =========================
-   CUSTOMER COPY PDF
+   CUSTOMER COPY IMAGE
 ========================= */
 
 const getReceiptPdfCustomer = async (receipt, res) => {
-  const doc = new PDFDocument({ 
-    margin: 50,
-    size: 'A4',
-    bufferPages: true
-  });
-  
-  doc.pipe(res);
-  
-  const pageWidth = doc.page.width;
-  const leftX = 50;
-  const rightX = 350;
-  const fullWidth = pageWidth - 100;
-  
-  // Draw header
-  let y = drawCompanyHeader(doc, receipt);
-  
-  // Draw customer info
-  y = drawCustomerInfo(doc, receipt, y);
-  
-  y += 20;
-  
-  // ========== TABLE HEADER (Simpler for customer) ==========
-  const rowHeight = 25;
-  
-  // Table header background
-  doc.rect(leftX, y, fullWidth, rowHeight).fill('#1E3A8A');
-  
-  // Column positions for customer copy
-  const col1 = leftX + 5;        // Items Details
-  const col2 = leftX + 170;      // Dust
-  const col3 = leftX + 230;      // Qty
-  const col4 = leftX + 290;      // Rate
-  const col5 = leftX + 420;      // Amount
-  
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF');
-  doc.text('Items Details', col1, y + 8);
-  doc.text('Dust', col2, y + 8);
-  doc.text('Qty', col3, y + 8);
-  doc.text('Rate', col4, y + 8);
-  doc.text('Amount ₦', col5, y + 8);
-  
-  y += rowHeight;
-  
-  // ========== TABLE ROWS ==========
-  let totalCredit = 0;
-  
-  receipt.credits.forEach((item, index) => {
-    // Alternating row colors
-    if (index % 2 === 0) {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#F9FAFB');
-    } else {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#E5E7EB');
-    }
+  try {
+    console.log('Generating Customer Receipt Image for receipt:', receipt._id);
     
-    const amount = (item.qty * item.rate) - (item.dust || 0);
-    totalCredit += amount;
+    const date = new Date(receipt.date || Date.now());
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2);
     
-    doc.fontSize(10).font('Helvetica').fillColor('#000000');
-    doc.text(item.description || '', col1, y + 8, { width: 160 });
-    doc.text(`${formatNumber(item.dust || 0)}KG`, col2, y + 8);
-    doc.text(formatNumber(item.qty), col3, y + 8);
-    doc.text(formatNumber(item.rate), col4, y + 8);
-    doc.text(formatNumber(amount), col5, y + 8);
+    let totalCredit = 0;
     
-    y += rowHeight;
-  });
-  
-  y += 15;
-  
-  // ========== DEDUCTIONS TABLE ==========
-  // Deductions header
-  doc.rect(leftX, y, fullWidth, rowHeight).fill('#1E3A8A');
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF');
-  doc.text('Descriptions', leftX + 10, y + 8);
-  doc.text('Amount ₦', rightX + 100, y + 8);
-  
-  y += rowHeight;
-  
-  // Deductions rows
-  receipt.less.forEach((item, index) => {
-    if (index % 2 === 0) {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#F9FAFB');
-    } else {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#E5E7EB');
-    }
+    const items = receipt.credits.map((item, index) => {
+      const amount = (item.qty * item.rate) - (item.dust || 0);
+      totalCredit += amount;
+      return {
+        description: item.description,
+        dust: item.dust || 0,
+        qty: item.qty,
+        rate: item.rate,
+        amount: formatNumber(amount),
+        odd: index % 2 === 1
+      };
+    });
     
-    doc.fontSize(10).font('Helvetica').fillColor('#000000');
-    doc.text(item.description || '', leftX + 10, y + 8);
-    doc.text(formatNumber(item.amount), rightX + 100, y + 8);
+    const offloadingAmount = receipt.less.find(l => l.description === 'Offloading')?.amount || 0;
+    const debitTotal = receipt.debitTotal || 0;
+    const balance = receipt.balance || 0;
     
-    y += rowHeight;
-  });
-  
-  // Add Debt row if not present
-  const hasDebt = receipt.less.some(l => l.description?.toLowerCase() === 'debt');
-  if (!hasDebt) {
-    if (receipt.less.length % 2 === 0) {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#F9FAFB');
-    } else {
-      doc.rect(leftX, y, fullWidth, rowHeight).fill('#E5E7EB');
-    }
-    doc.fontSize(10).font('Helvetica').fillColor('#000000');
-    doc.text('Debt', leftX + 10, y + 8);
-    y += rowHeight;
+    const logoUrl = getLogoUrl();
+    
+    const html = compiledCustomerTemplate({
+      logoUrl,
+      day,
+      month,
+      year,
+      companyName: receipt.companyInfo?.name || 'Africa Steel Ltd',
+      customerName: receipt.customerName || '',
+      customerAddress: receipt.customerAddress || '',
+      customerPhone: receipt.customerPhone || '',
+      vehicleNo: receipt.vehicle || '',
+      items,
+      offloadingAmount: formatNumber(offloadingAmount),
+      debtAmount: '',
+      creditAmount: formatCurrency(totalCredit),
+      debitAmount: formatCurrency(debitTotal),
+      balanceAmount: formatCurrency(balance)
+    });
+    
+    const imageBuffer = await generateImageFromHTML(html);
+    
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}-customer.png"`);
+    res.setHeader('Content-Length', imageBuffer.length);
+    
+    res.end(imageBuffer);
+  } catch (error) {
+    console.error('Image Generation Error:', error);
+    res.status(500).json({ error: 'Image generation failed', details: error.message });
   }
-  
-  y += 20;
-  
-  // ========== TOTALS SECTION (Right-aligned) ==========
-  const totalsX = rightX + 80;
-  
-  doc.fontSize(11).font('Helvetica').fillColor('#000000');
-  doc.text('Credit:', totalsX, y);
-  doc.font('Helvetica-Bold')
-     .text(formatCurrency(totalCredit), totalsX + 60, y);
-  
-  y += 18;
-  
-  doc.font('Helvetica').fillColor('#000000');
-  doc.text('Debit:', totalsX, y);
-  doc.font('Helvetica-Bold')
-     .text(formatCurrency(receipt.debitTotal), totalsX + 60, y);
-  
-  y += 25;
-  
-  // Balance with red underline
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#1E3A8A');
-  doc.text('Balance:', totalsX, y);
-  doc.text(formatCurrency(receipt.balance), totalsX + 70, y);
-  
-  // Red underline
-  y += 20;
-  doc.moveTo(totalsX, y)
-     .lineTo(totalsX + 200, y)
-     .lineWidth(3)
-     .stroke('#DC2626');
-  
-  y += 60;
-  
-  // Thank you message
-  doc.fontSize(11).font('Helvetica-Oblique').fillColor('#1F2937')
-     .text('Thank you for doing business with us.', leftX, y, { 
-       align: 'center', 
-       width: fullWidth 
-     });
-  
-  doc.end();
 };
 
 /* =========================
-   MAIN PDF ROUTE
+   MAIN IMAGE ROUTE
 ========================= */
 
 const getReceiptPdf = async (req, res) => {
-  try {
-    const receipt = await Receipt.findById(req.params.id);
-    if (!receipt) return res.status(404).json({ message: 'Receipt not found' });
+  const receipt = await Receipt.findById(req.params.id);
+  if (!receipt) return res.status(404).json({ message: 'Not found' });
 
-    const { type } = req.query;
+  const { type } = req.query;
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNumber}.pdf"`);
-
-    if (type === 'customer') {
-      return getReceiptPdfCustomer(receipt, res);
-    }
-
-    return getReceiptPdfCompany(receipt, res);
-    
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    res.status(500).json({ 
-      message: 'Error generating PDF', 
-      error: error.message 
-    });
+  if (type === 'customer') {
+    return getReceiptPdfCustomer(receipt, res);
   }
+
+  return getReceiptPdfCompany(receipt, res);
 };
 
 /* =========================
