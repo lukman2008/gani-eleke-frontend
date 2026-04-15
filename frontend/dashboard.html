@@ -23,6 +23,14 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Make search results clickable */
+        .search-result {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .search-result:hover {
+            background-color: #dbeafe !important;
+        }
     </style>
     <script>
     const getApiBaseUrl = () => {
@@ -116,6 +124,26 @@
     },
     get filteredReceipts() { return this.receipts.filter(r => r.customerName?.toLowerCase().includes(this.search.toLowerCase()) || r.receiptNumber?.toLowerCase().includes(this.search.toLowerCase())); },
     async loadReceipts() { if (!this.token) return; try { const res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.receipts = await res.json(); } catch (err) { console.error('Failed to load receipts', err); } },
+    async downloadReceipt(receiptId, type) {
+        if (!receiptId) return;
+        try {
+            const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
+            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `receipt-${receiptId}-${type}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } else { 
+                alert('Failed to generate receipt'); 
+            }
+        } catch (err) { 
+            alert('Network error: ' + err.message); 
+        }
+    },
     async createReceipt() {
         if (!this.token) return;
         const credits = [];
@@ -247,7 +275,11 @@
                             <input type="text" x-model="search" placeholder="Search name or Receipt ID..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                             <div x-show="search.length > 0" x-transition class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                                 <template x-for="receipt in filteredReceipts" :key="receipt._id">
-                                    <div class="p-3 hover:bg-blue-50 transition-colors border-b border-slate-50 cursor-pointer"><p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p><p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p></div>
+                                    <div class="p-3 search-result border-b border-slate-50" @click="downloadReceipt(receipt._id, 'customer')">
+                                        <p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p>
+                                        <p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p>
+                                        <p class="text-[10px] text-blue-600 mt-1">Click to download receipt</p>
+                                    </div>
                                 </template>
                             </div>
                         </div>
