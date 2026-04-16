@@ -124,26 +124,7 @@
     },
     get filteredReceipts() { return this.receipts.filter(r => r.customerName?.toLowerCase().includes(this.search.toLowerCase()) || r.receiptNumber?.toLowerCase().includes(this.search.toLowerCase())); },
     async loadReceipts() { if (!this.token) return; try { const res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.receipts = await res.json(); } catch (err) { console.error('Failed to load receipts', err); } },
-    async downloadReceipt(receiptId, type) {
-        if (!receiptId) return;
-        try {
-            const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
-            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${receiptId}-${type}.html`;
-                a.click();
-                URL.revokeObjectURL(url);
-            } else { 
-                alert('Failed to generate receipt'); 
-            }
-        } catch (err) { 
-            alert('Network error: ' + err.message); 
-        }
-    },
+    
     async createReceipt() {
         if (!this.token) return;
         const credits = [];
