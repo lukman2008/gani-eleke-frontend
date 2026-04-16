@@ -32,17 +32,35 @@ const getBrowser = async () => {
     ];
     
     if (process.env.NODE_ENV === 'production') {
-        // Production on Render.com - Chrome installed by install-chrome.sh
-        const chromePath = '/usr/bin/google-chrome-stable';
+        // Try multiple possible Chrome locations on Render
+        const possiblePaths = [
+            '/opt/render/.chrome-for-testing/chrome-linux64/chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            process.env.GOOGLE_CHROME_PATH,
+            process.env.PUPPETEER_EXECUTABLE_PATH
+        ].filter(Boolean);
         
-        if (!fs.existsSync(chromePath)) {
-            throw new Error(`Chrome not found at ${chromePath}. Please check installation.`);
+        let executablePath = null;
+        for (const path of possiblePaths) {
+            if (fs.existsSync(path)) {
+                executablePath = path;
+                console.log('Found Chrome at:', executablePath);
+                break;
+            }
         }
         
-        console.log('Production - Launching Chrome from:', chromePath);
+        if (!executablePath) {
+            // Log all paths tried for debugging
+            console.error('Tried Chrome paths:', possiblePaths);
+            throw new Error('Chrome not found! The buildpack may not have installed correctly.');
+        }
+        
+        console.log('Production - Launching Chrome from:', executablePath);
         
         return await puppeteer.launch({
-            executablePath: chromePath,
+            executablePath,
             args: launchArgs,
             headless: "new"
         });
