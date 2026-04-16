@@ -17,53 +17,67 @@ const formatNumber = (num) => num.toLocaleString('en-US');
 
 const getLogoUrl = () => 'https://gani-eleke-project.vercel.app/frontend/img/logo.jpeg';
 
-// Helper to find Chrome executable path on Windows
-const findChromePath = () => {
-    const possiblePaths = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Users\\' + require('os').userInfo().username + '\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe',
-        process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-        process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
-        process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe'
-    ];
-    
-    for (const chromePath of possiblePaths) {
-        if (fs.existsSync(chromePath)) {
-            console.log('Found Chrome at:', chromePath);
-            return chromePath;
-        }
-    }
-    return null;
-};
+
 
 // Helper to launch Puppeteer based on environment
 const getBrowser = async () => {
-    let executablePath;
+    let launchArgs = [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-web-security',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote'
+    ];
     
     if (process.env.NODE_ENV === 'production') {
-        executablePath = '/usr/bin/google-chrome-stable';
+        // Production on Render.com - Chrome installed by install-chrome.sh
+        const chromePath = '/usr/bin/google-chrome-stable';
+        
+        if (!fs.existsSync(chromePath)) {
+            throw new Error(`Chrome not found at ${chromePath}. Please check installation.`);
+        }
+        
+        console.log('Production - Launching Chrome from:', chromePath);
+        
+        return await puppeteer.launch({
+            executablePath: chromePath,
+            args: launchArgs,
+            headless: "new"
+        });
     } else {
-        executablePath = findChromePath();
+        // Local development - find Chrome installation on Windows
+        const possiblePaths = [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Users\\' + require('os').userInfo().username + '\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe',
+            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+            process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
+            process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe'
+        ];
+        
+        let executablePath = null;
+        for (const chromePath of possiblePaths) {
+            if (fs.existsSync(chromePath)) {
+                executablePath = chromePath;
+                console.log('Found Chrome at:', executablePath);
+                break;
+            }
+        }
         
         if (!executablePath) {
             throw new Error('Google Chrome not found! Please install Google Chrome.');
         }
+        
+        console.log('Development - Launching Chrome from:', executablePath);
+        
+        return await puppeteer.launch({
+            executablePath,
+            args: launchArgs,
+            headless: "new"
+        });
     }
-
-    console.log('Launching Chrome from:', executablePath);
-    
-    return await puppeteer.launch({
-        executablePath,
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--disable-web-security',
-            '--disable-dev-shm-usage',
-            '--disable-gpu'
-        ],
-        headless: "new"
-    });
 };
 
 /* =========================
