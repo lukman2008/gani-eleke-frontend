@@ -1,33 +1,34 @@
-#!/bin/bash
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-# Install Chrome for Render.com
-echo "========================================="
-echo "Installing Google Chrome for Puppeteer..."
-echo "========================================="
+console.log('Checking Chrome installation...');
 
-# Update packages
-apt-get update
+// For Render.com production
+if (process.env.NODE_ENV === 'production') {
+    console.log('Production environment - Chrome will be provided by Render buildpack');
+    process.exit(0);
+}
 
-# Install dependencies
-apt-get install -y wget gnupg ca-certificates
-
-# Add Google Chrome repository
-wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
-
-# Update and install Chrome
-apt-get update
-apt-get install -y google-chrome-stable
-
-# Verify installation
-if [ -f "/usr/bin/google-chrome-stable" ]; then
-    echo "✅ Chrome installed successfully at: /usr/bin/google-chrome-stable"
-    ls -la /usr/bin/google-chrome-stable
-else
-    echo "❌ Chrome installation failed!"
-    exit 1
-fi
-
-echo "========================================="
-echo "Chrome installation completed!"
-echo "========================================="
+// For local development on Windows
+if (os.platform() === 'win32') {
+    const chromePaths = [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe'
+    ];
+    
+    let found = false;
+    for (const chromePath of chromePaths) {
+        if (fs.existsSync(chromePath)) {
+            console.log(`✅ Chrome found at: ${chromePath}`);
+            found = true;
+            break;
+        }
+    }
+    
+    if (!found) {
+        console.log('⚠️ Chrome not found locally. Install Chrome for better performance.');
+    }
+}

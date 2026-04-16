@@ -17,83 +17,109 @@ const formatNumber = (num) => num.toLocaleString('en-US');
 
 const getLogoUrl = () => 'https://gani-eleke-project.vercel.app/frontend/img/logo.jpeg';
 
-
+// Find Chrome path based on environment
+const getChromePath = () => {
+    if (process.env.NODE_ENV === 'production') {
+        // Docker container paths
+        const paths = [
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/opt/chrome/chrome'
+        ];
+        
+        for (const p of paths) {
+            if (fs.existsSync(p)) {
+                console.log('Found Chrome at:', p);
+                return p;
+            }
+        }
+        console.error('Chrome not found! Available paths:', paths);
+        return null;
+    } else {
+        // Windows local development
+        const paths = [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe'
+        ];
+        
+        for (const p of paths) {
+            if (fs.existsSync(p)) {
+                console.log('Found Chrome at:', p);
+                return p;
+            }
+        }
+        return null;
+    }
+};
 
 // Helper to launch Puppeteer based on environment
 const getBrowser = async () => {
     let launchArgs = [
         '--no-sandbox', 
         '--disable-setuid-sandbox', 
-        '--disable-web-security',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote'
+        '--disable-web-security'
     ];
     
     if (process.env.NODE_ENV === 'production') {
-        // Try multiple possible Chrome locations on Render
-        const possiblePaths = [
-            '/opt/render/.chrome-for-testing/chrome-linux64/chrome',
+        // Production on Render.com - Chrome installed via Docker
+        const chromePaths = [
             '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome',
             '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-            process.env.GOOGLE_CHROME_PATH,
-            process.env.PUPPETEER_EXECUTABLE_PATH
-        ].filter(Boolean);
+            '/usr/bin/chromium'
+        ];
         
-        let executablePath = null;
-        for (const path of possiblePaths) {
+        let chromePath = null;
+        for (const path of chromePaths) {
             if (fs.existsSync(path)) {
-                executablePath = path;
-                console.log('Found Chrome at:', executablePath);
+                chromePath = path;
+                console.log('Found Chrome at:', chromePath);
                 break;
             }
         }
         
-        if (!executablePath) {
-            // Log all paths tried for debugging
-            console.error('Tried Chrome paths:', possiblePaths);
-            throw new Error('Chrome not found! The buildpack may not have installed correctly.');
+        if (!chromePath) {
+            throw new Error('Chrome not found! Please check Docker installation.');
         }
         
-        console.log('Production - Launching Chrome from:', executablePath);
+        console.log('Production - Launching Chrome from:', chromePath);
         
         return await puppeteer.launch({
-            executablePath,
+            executablePath: chromePath,
             args: launchArgs,
-            headless: "new"
+            headless: 'new'
         });
     } else {
-        // Local development - find Chrome installation on Windows
+        // Local development - find Chrome on Windows
         const possiblePaths = [
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Users\\' + require('os').userInfo().username + '\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe',
-            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-            process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
-            process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe'
+            process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe'
         ];
         
-        let executablePath = null;
-        for (const chromePath of possiblePaths) {
-            if (fs.existsSync(chromePath)) {
-                executablePath = chromePath;
-                console.log('Found Chrome at:', executablePath);
+        let chromePath = null;
+        for (const path of possiblePaths) {
+            if (fs.existsSync(path)) {
+                chromePath = path;
+                console.log('Found Chrome at:', chromePath);
                 break;
             }
         }
         
-        if (!executablePath) {
-            throw new Error('Google Chrome not found! Please install Google Chrome.');
+        if (!chromePath) {
+            throw new Error('Chrome not found! Please install Google Chrome.');
         }
         
-        console.log('Development - Launching Chrome from:', executablePath);
+        console.log('Development - Launching Chrome from:', chromePath);
         
         return await puppeteer.launch({
-            executablePath,
+            executablePath: chromePath,
             args: launchArgs,
-            headless: "new"
+            headless: 'new'
         });
     }
 };
@@ -140,12 +166,9 @@ const generateImageResponse = async (html, filename, res) => {
             timeout: 60000
         });
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
         let element = await page.$('.max-w-\\[800px\\]');
-        if (!element) {
-            element = await page.$('.receipt-container');
-        }
         if (!element) {
             element = await page.$('body');
         }
