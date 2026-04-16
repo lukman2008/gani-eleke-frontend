@@ -166,27 +166,58 @@
             } else { const error = await res.json(); alert(error.message || 'Error creating receipt'); }
         } catch (err) { alert('Network error: ' + err.message); }
     },
-    async downloadPDF(type) {
-        if (!this.currentReceipt) return;
-        try {
-            const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
-            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.html`;
-                a.click();
-                URL.revokeObjectURL(url);
-                this.showModal = false;
-            } else { 
-                alert('Failed to generate receipt'); 
-            }
-        } catch (err) { 
-            alert('Network error: ' + err.message); 
+async downloadReceipt(receiptId, type) {
+    if (!receiptId) return;
+    try {
+        const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
+        console.log('Downloading from:', url);
+        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+        if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `receipt-${receiptId}-${type}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            console.log('Download started successfully');
+        } else { 
+            const error = await res.json();
+            console.error('Server error:', error);
+            alert('Failed to generate receipt: ' + (error.error || error.message));
         }
-    },
+    } catch (err) { 
+        console.error('Network error:', err);
+        alert('Network error: ' + err.message); 
+    }
+},
+
+async downloadPDF(type) {
+    if (!this.currentReceipt) return;
+    try {
+        const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
+        console.log('Downloading from:', url);
+        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+        if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.showModal = false;
+            console.log('Download started successfully');
+        } else { 
+            const error = await res.json();
+            console.error('Server error:', error);
+            alert('Failed to generate receipt: ' + (error.error || error.message));
+        }
+    } catch (err) { 
+        console.error('Network error:', err);
+        alert('Network error: ' + err.message); 
+    }
+},
     
     // Land Rent Functions
     async loadLandRents() { if (!this.token) return; try { const res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.landRents = await res.json(); } catch (err) { alert('Network error'); } },
@@ -410,3 +441,25 @@
     </script>
 </body>
 </html>
+
+<!-- async downloadPDF(type) {
+        if (!this.currentReceipt) return;
+        try {
+            const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
+            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showModal = false;
+            } else { 
+                alert('Failed to generate receipt'); 
+            }
+        } catch (err) { 
+            alert('Network error: ' + err.message); 
+        }
+    }, -->
