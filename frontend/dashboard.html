@@ -68,7 +68,7 @@
     // Receipt data
     receipts: [], search: '', showModal: false, currentReceipt: null,
     customerName: '', customerPhone: '', customerAddress: '', vehicleNo: '', expenses: '', debtAmount: '', companyName: '',
-    items: [{ description: '', quantity: '', dust: '', rate: '' }],
+    items: [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }],
     
     // Land Rent data
     landRents: [], landCustomerName: '', landCustomerPhone: '', truckType: '', material: '', amount: '', status: 'pending', landNotes: '',
@@ -88,38 +88,36 @@
     
     // Dashboard Functions
     async loadSummary() {
-    if (!this.token) return;
-    try {
-        const [receiptRes, landRentRes] = await Promise.all([
-            fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
-            fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
-        ]);
-        
-        if (receiptRes.ok) {
-            const receiptData = await receiptRes.json();
-            this.summary.totalReceipts = receiptData.totalReceipts || 0;
-            this.summary.totalCredit = receiptData.totalCreditAmount || 0;
-            this.summary.totalDebit = receiptData.totalDebitAmount || 0;
-            this.summary.totalBalance = receiptData.totalBalance || 0;
-            // AGENT REVENUE comes from total profit in receipts
-            this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
-            this.summary.agentRevenueThisWeek = receiptData.totalAgentRevenue || 0; // You can calculate weekly separately
-            this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
+        if (!this.token) return;
+        try {
+            const [receiptRes, landRentRes] = await Promise.all([
+                fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
+                fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
+            ]);
+            
+            if (receiptRes.ok) {
+                const receiptData = await receiptRes.json();
+                this.summary.totalReceipts = receiptData.totalReceipts || 0;
+                this.summary.totalCredit = receiptData.totalCreditAmount || 0;
+                this.summary.totalDebit = receiptData.totalDebitAmount || 0;
+                this.summary.totalBalance = receiptData.totalBalance || 0;
+                this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
+                this.summary.agentRevenueThisWeek = receiptData.agentRevenueThisWeek || 0;
+                this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
+            }
+            
+            if (landRentRes.ok) {
+                const landData = await landRentRes.json();
+                this.summary.totalLandRevenue = landData.totalRevenue || 0;
+                this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
+            }
+        } catch (err) { 
+            console.error('Failed to load summary', err); 
         }
-        
-        if (landRentRes.ok) {
-            const landData = await landRentRes.json();
-            // LAND REVENUE comes from land rentals (paid only)
-            this.summary.totalLandRevenue = landData.totalRevenue || 0;
-            this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
-        }
-    } catch (err) { 
-        console.error('Failed to load summary', err); 
-    }
-},
+    },
     
     // Receipt Functions
-    addItem() { this.items.push({ description: '', quantity: '', dust: '', rate: '' }); },
+    addItem() { this.items.push({ description: '', quantity: '', dust: '', initialRate: '', rate: '' }); },
     removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); },
     get totalPayment() {
         let total = 0;
@@ -134,7 +132,17 @@
     async createReceipt() {
         if (!this.token) return;
         const credits = [];
-        for (let item of this.items) if (item.description && item.quantity && item.rate) credits.push({ description: item.description, qty: parseFloat(item.quantity), dust: parseFloat(item.dust) || 0, rate: parseFloat(item.rate) });
+        for (let item of this.items) {
+            if (item.description && item.quantity && item.rate) {
+                credits.push({ 
+                    description: item.description, 
+                    qty: parseFloat(item.quantity), 
+                    dust: parseFloat(item.dust) || 0, 
+                    rate: parseFloat(item.rate),
+                    initialRate: parseFloat(item.initialRate) || parseFloat(item.rate)
+                });
+            }
+        }
         if (credits.length === 0) { alert('Please add at least one item'); return; }
         const less = [];
         if (this.expenses && parseFloat(this.expenses) > 0) less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
@@ -148,7 +156,7 @@
                 this.currentReceipt = receipt;
                 this.showModal = true;
                 this.customerName = ''; this.customerPhone = ''; this.customerAddress = ''; this.vehicleNo = ''; this.expenses = ''; this.debtAmount = ''; this.companyName = '';
-                this.items = [{ description: '', quantity: '', dust: '', rate: '' }];
+                this.items = [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }];
                 await this.loadSummary();
             } else { const error = await res.json(); alert(error.message || 'Error creating receipt'); }
         } catch (err) { alert('Network error: ' + err.message); }
@@ -326,11 +334,31 @@
                                 <div class="space-y-3 overflow-x-auto">
                                     <template x-for="(item, index) in items" :key="index">
                                         <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end bg-gray-50 p-3 rounded-lg">
-                                            <div class="col-span-2 md:col-span-4"><label class="text-[10px] font-bold uppercase text-slate-400">Description</label><input type="text" x-model="item.description" placeholder="Mix, Cast, etc" class="w-full p-2 text-sm border rounded-lg"></div>
-                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">QTY</label><input type="number" x-model="item.quantity" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
-                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">DUST (KG)</label><input type="number" x-model="item.dust" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
-                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">RATE (₦)</label><input type="number" x-model="item.rate" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
-                                            <div class="col-span-1 md:col-span-1"><button type="button" @click="removeItem(index)" class="text-red-500 hover:text-red-700 p-2 mt-4 md:mt-0" x-show="items.length > 1"><i class="fa-solid fa-trash-can"></i></button></div>
+                                            <div class="col-span-2 md:col-span-3">
+                                                <label class="text-[10px] font-bold uppercase text-slate-400">Description</label>
+                                                <input type="text" x-model="item.description" placeholder="Mix, Cast, etc" class="w-full p-2 text-sm border rounded-lg">
+                                            </div>
+                                            <div class="col-span-1 md:col-span-2">
+                                                <label class="text-[10px] font-bold uppercase text-slate-400">QTY</label>
+                                                <input type="number" x-model="item.quantity" step="0.01" class="w-full p-2 text-sm border rounded-lg">
+                                            </div>
+                                            <div class="col-span-1 md:col-span-2">
+                                                <label class="text-[10px] font-bold uppercase text-slate-400">DUST (KG)</label>
+                                                <input type="number" x-model="item.dust" step="0.01" class="w-full p-2 text-sm border rounded-lg">
+                                            </div>
+                                            <div class="col-span-1 md:col-span-2">
+                                                <label class="text-[10px] font-bold uppercase text-slate-400">I-RATE (₦)</label>
+                                                <input type="number" x-model="item.initialRate" step="0.01" placeholder="Initial rate" class="w-full p-2 text-sm border rounded-lg">
+                                            </div>
+                                            <div class="col-span-1 md:col-span-2">
+                                                <label class="text-[10px] font-bold uppercase text-slate-400">F-RATE (₦)</label>
+                                                <input type="number" x-model="item.rate" step="0.01" placeholder="Final rate" class="w-full p-2 text-sm border rounded-lg">
+                                            </div>
+                                            <div class="col-span-1 md:col-span-1">
+                                                <button type="button" @click="removeItem(index)" class="text-red-500 hover:text-red-700 p-2 mt-4 md:mt-0" x-show="items.length > 1">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </template>
                                 </div>
