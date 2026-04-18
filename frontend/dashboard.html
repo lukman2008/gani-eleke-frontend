@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Management Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Updated to a more reliable Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @media (max-width: 768px) {
@@ -23,7 +24,6 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
-        /* Make search results clickable */
         .search-result {
             cursor: pointer;
             transition: background-color 0.2s;
@@ -55,7 +55,7 @@
         const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'; 
         return `${basePath}${path}`;
     };
-</script>
+    </script>
 </head>
 <body class="bg-gray-100 font-sans antialiased" x-data="{
     page: 'dashboard',
@@ -78,7 +78,7 @@
     
     toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
     logout() { 
-    localStorage.removeItem('token'); 
+        localStorage.removeItem('token'); 
         if (window.location.hostname.includes('vercel.app')) {
             window.location.href = '/frontend/index.html';
         } else {
@@ -88,34 +88,35 @@
     
     // Dashboard Functions
     async loadSummary() {
-    if (!this.token) return;
-    try {
-        const [receiptRes, landRentRes] = await Promise.all([
-            fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
-            fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
-        ]);
-        
-        if (receiptRes.ok) {
-            const receiptData = await receiptRes.json();
-            this.summary.totalReceipts = receiptData.totalReceipts || 0;
-            this.summary.totalCredit = receiptData.totalCreditAmount || 0;
-            this.summary.totalDebit = receiptData.totalDebitAmount || 0;
-            this.summary.totalBalance = receiptData.totalBalance || 0;
-            // AGENT REVENUE comes from receipts (profit from company copy)
-            this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
-            this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
+        if (!this.token) return;
+        try {
+            const [receiptRes, landRentRes] = await Promise.all([
+                fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
+                fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
+            ]);
+            
+            if (receiptRes.ok) {
+                const receiptData = await receiptRes.json();
+                this.summary.totalReceipts = receiptData.totalReceipts || 0;
+                this.summary.totalCredit = receiptData.totalCreditAmount || 0;
+                this.summary.totalDebit = receiptData.totalDebitAmount || 0;
+                this.summary.totalBalance = receiptData.totalBalance || 0;
+                // AGENT REVENUE comes from receipts (profit from company copy)
+                this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
+                this.summary.agentRevenueThisWeek = receiptData.weeklyAgentRevenue || 0;
+                this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
+            }
+            
+            if (landRentRes.ok) {
+                const landData = await landRentRes.json();
+                // LAND REVENUE comes from land rentals (paid only)
+                this.summary.totalLandRevenue = landData.totalRevenue || 0;
+                this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
+            }
+        } catch (err) { 
+            console.error('Failed to load summary', err); 
         }
-        
-        if (landRentRes.ok) {
-            const landData = await landRentRes.json();
-            // LAND REVENUE comes from land rentals (paid only)
-            this.summary.totalLandRevenue = landData.totalRevenue || 0;
-            this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
-        }
-    } catch (err) { 
-        console.error('Failed to load summary', err); 
-    }
-}
+    },
     
     // Receipt Functions
     addItem() { this.items.push({ description: '', quantity: '', dust: '', rate: '' }); },
@@ -152,58 +153,59 @@
             } else { const error = await res.json(); alert(error.message || 'Error creating receipt'); }
         } catch (err) { alert('Network error: ' + err.message); }
     },
-async downloadReceipt(receiptId, type) {
-    if (!receiptId) return;
-    try {
-        const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
-        console.log('Downloading from:', url);
-        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-        if (res.ok) {
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `receipt-${receiptId}-${type}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-            console.log('Download started successfully');
-        } else { 
-            const error = await res.json();
-            console.error('Server error:', error);
-            alert('Failed to generate receipt: ' + (error.error || error.message));
+    
+    async downloadReceipt(receiptId, type) {
+        if (!receiptId) return;
+        try {
+            const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
+            console.log('Downloading from:', url);
+            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `receipt-${receiptId}-${type}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+                console.log('Download started successfully');
+            } else { 
+                const error = await res.json();
+                console.error('Server error:', error);
+                alert('Failed to generate receipt: ' + (error.error || error.message));
+            }
+        } catch (err) { 
+            console.error('Network error:', err);
+            alert('Network error: ' + err.message); 
         }
-    } catch (err) { 
-        console.error('Network error:', err);
-        alert('Network error: ' + err.message); 
-    }
-},
-
-async downloadPDF(type) {
-    if (!this.currentReceipt) return;
-    try {
-        const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
-        console.log('Downloading from:', url);
-        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-        if (res.ok) {
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this.showModal = false;
-            console.log('Download started successfully');
-        } else { 
-            const error = await res.json();
-            console.error('Server error:', error);
-            alert('Failed to generate receipt: ' + (error.error || error.message));
+    },
+    
+    async downloadPDF(type) {
+        if (!this.currentReceipt) return;
+        try {
+            const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
+            console.log('Downloading from:', url);
+            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+                this.showModal = false;
+                console.log('Download started successfully');
+            } else { 
+                const error = await res.json();
+                console.error('Server error:', error);
+                alert('Failed to generate receipt: ' + (error.error || error.message));
+            }
+        } catch (err) { 
+            console.error('Network error:', err);
+            alert('Network error: ' + err.message); 
         }
-    } catch (err) { 
-        console.error('Network error:', err);
-        alert('Network error: ' + err.message); 
-    }
-},
+    },
     
     // Land Rent Functions
     async loadLandRents() { if (!this.token) return; try { const res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.landRents = await res.json(); } catch (err) { alert('Network error'); } },
@@ -242,8 +244,15 @@ async downloadPDF(type) {
                 this.showClearReceiptsModal = false; this.showClearAllModal = false;
             }
         } catch (err) { alert('Network error: ' + err.message); }
+    },
+    
+    // Initialize function
+    init() {
+        this.loadSummary();
+        this.loadReceipts();
+        this.loadLandRents();
     }
-}" x-init="async function() { await loadSummary(); await loadReceipts(); await loadLandRents(); }()">
+}" x-init="init()">
 
     <div class="flex h-screen overflow-hidden">
         <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden"><i class="fa-solid fa-bars text-xl"></i></button>
@@ -273,11 +282,11 @@ async downloadPDF(type) {
                     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 uppercase tracking-wide">Dashboard Overview</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Receipts</p><p class="text-2xl md:text-3xl font-black text-green-600 mt-1" x-text="summary.totalReceipts"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Land Revenue This Week</p><p class="text-xl md:text-3xl font-black text-purple-600 mt-1" x-text="'₦' + summary.landRevenueThisWeek.toLocaleString()"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Land Revenue</p><p class="text-xl md:text-3xl font-black text-indigo-600 mt-1" x-text="'₦' + summary.totalLandRevenue.toLocaleString()"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue</p><p class="text-xl md:text-3xl font-black text-teal-600 mt-1" x-text="'₦' + summary.agentRevenue.toLocaleString()"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue This Week</p><p class="text-xl md:text-3xl font-black text-pink-600 mt-1" x-text="'₦' + summary.agentRevenueThisWeek.toLocaleString()"></p></div>
-                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Agent Revenue</p><p class="text-xl md:text-3xl font-black text-amber-600 mt-1" x-text="'₦' + summary.totalAgentRevenue.toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Land Revenue This Week</p><p class="text-xl md:text-3xl font-black text-purple-600 mt-1" x-text="'₦' + (summary.landRevenueThisWeek || 0).toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Land Revenue</p><p class="text-xl md:text-3xl font-black text-indigo-600 mt-1" x-text="'₦' + (summary.totalLandRevenue || 0).toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue</p><p class="text-xl md:text-3xl font-black text-teal-600 mt-1" x-text="'₦' + (summary.agentRevenue || 0).toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Agent Revenue This Week</p><p class="text-xl md:text-3xl font-black text-pink-600 mt-1" x-text="'₦' + (summary.agentRevenueThisWeek || 0).toLocaleString()"></p></div>
+                        <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Agent Revenue</p><p class="text-xl md:text-3xl font-black text-amber-600 mt-1" x-text="'₦' + (summary.totalAgentRevenue || 0).toLocaleString()"></p></div>
                     </div>
                 </div>
             </template>
@@ -427,25 +436,3 @@ async downloadPDF(type) {
     </script>
 </body>
 </html>
-
-<!-- async downloadPDF(type) {
-        if (!this.currentReceipt) return;
-        try {
-            const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
-            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.html`;
-                a.click();
-                URL.revokeObjectURL(url);
-                this.showModal = false;
-            } else { 
-                alert('Failed to generate receipt'); 
-            }
-        } catch (err) { 
-            alert('Network error: ' + err.message); 
-        }
-    }, -->
