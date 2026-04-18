@@ -88,35 +88,35 @@
     
     // Dashboard Functions
     async loadSummary() {
-        if (!this.token) return;
-        try {
-            const [receiptRes, landRentRes] = await Promise.all([
-                fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
-                fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
-            ]);
-            
-            if (receiptRes.ok) {
-                const receiptData = await receiptRes.json();
-                this.summary.totalReceipts = receiptData.totalReceipts || 0;
-                this.summary.totalCredit = receiptData.totalCreditAmount || 0;
-                this.summary.totalDebit = receiptData.totalDebitAmount || 0;
-                this.summary.totalBalance = receiptData.totalBalance || 0;
-                // AGENT REVENUE comes from receipts (profit from company copy)
-                this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
-                this.summary.agentRevenueThisWeek = receiptData.weeklyAgentRevenue || 0;
-                this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
-            }
-            
-            if (landRentRes.ok) {
-                const landData = await landRentRes.json();
-                // LAND REVENUE comes from land rentals (paid only)
-                this.summary.totalLandRevenue = landData.totalRevenue || 0;
-                this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
-            }
-        } catch (err) { 
-            console.error('Failed to load summary', err); 
+    if (!this.token) return;
+    try {
+        const [receiptRes, landRentRes] = await Promise.all([
+            fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
+            fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
+        ]);
+        
+        if (receiptRes.ok) {
+            const receiptData = await receiptRes.json();
+            this.summary.totalReceipts = receiptData.totalReceipts || 0;
+            this.summary.totalCredit = receiptData.totalCreditAmount || 0;
+            this.summary.totalDebit = receiptData.totalDebitAmount || 0;
+            this.summary.totalBalance = receiptData.totalBalance || 0;
+            // AGENT REVENUE comes from total profit in receipts
+            this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
+            this.summary.agentRevenueThisWeek = receiptData.totalAgentRevenue || 0; // You can calculate weekly separately
+            this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
         }
-    },
+        
+        if (landRentRes.ok) {
+            const landData = await landRentRes.json();
+            // LAND REVENUE comes from land rentals (paid only)
+            this.summary.totalLandRevenue = landData.totalRevenue || 0;
+            this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
+        }
+    } catch (err) { 
+        console.error('Failed to load summary', err); 
+    }
+},
     
     // Receipt Functions
     addItem() { this.items.push({ description: '', quantity: '', dust: '', rate: '' }); },
