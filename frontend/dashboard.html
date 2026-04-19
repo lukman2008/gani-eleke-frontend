@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Management Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Updated to a more reliable Alpine.js CDN -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -36,7 +35,6 @@
     const getApiBaseUrl = () => {
         const hostname = window.location.hostname;
         const port = window.location.port;
-        console.log('Current hostname:', hostname, 'port:', port);
         
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
             return 'http://localhost:5000';
@@ -44,13 +42,10 @@
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
             return '';
         }
-        
         return 'https://gani-eleke-backend.onrender.com';
     };
     
     const API_BASE_URL = getApiBaseUrl();
-    console.log('API Base URL:', API_BASE_URL);
-    
     const getApiUrl = (path) => { 
         const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'; 
         return `${basePath}${path}`;
@@ -62,31 +57,29 @@
     mobileMenuOpen: false,
     token: localStorage.getItem('token'),
     
-    // Dashboard summary
     summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRevenueThisWeek: 0, totalLandRevenue: 0, agentRevenue: 0, agentRevenueThisWeek: 0, totalAgentRevenue: 0 },
     
-    // Receipt data
     receipts: [], search: '', showModal: false, currentReceipt: null,
     customerName: '', customerPhone: '', customerAddress: '', vehicleNo: '', expenses: '', debtAmount: '', companyName: '',
     items: [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }],
     
-    // Land Rent data
     landRents: [], landCustomerName: '', landCustomerPhone: '', truckType: '', material: '', amount: '', status: 'pending', landNotes: '',
     
-    // Settings
     showClearReceiptsModal: false, showClearAllModal: false, clearingType: null,
+    
+    // Staff Management
+    staffList: [],
+    showStaffModal: false,
+    editingStaff: null,
+    staffForm: { name: '', email: '', password: '', role: 'staff' },
+    userRole: '',
     
     toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
     logout() { 
         localStorage.removeItem('token'); 
-        if (window.location.hostname.includes('vercel.app')) {
-            window.location.href = '/frontend/index.html';
-        } else {
-            window.location.href = 'index.html';
-        }
+        window.location.href = 'index.html';
     },
     
-    // Dashboard Functions
     async loadSummary() {
         if (!this.token) return;
         try {
@@ -116,7 +109,6 @@
         }
     },
     
-    // Receipt Functions
     addItem() { this.items.push({ description: '', quantity: '', dust: '', initialRate: '', rate: '' }); },
     removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); },
     get totalPayment() {
@@ -166,7 +158,6 @@
         if (!receiptId) return;
         try {
             const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
-            console.log('Downloading from:', url);
             const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
             if (res.ok) {
                 const blob = await res.blob();
@@ -176,14 +167,11 @@
                 a.download = `receipt-${receiptId}-${type}.png`;
                 a.click();
                 URL.revokeObjectURL(url);
-                console.log('Download started successfully');
             } else { 
                 const error = await res.json();
-                console.error('Server error:', error);
                 alert('Failed to generate receipt: ' + (error.error || error.message));
             }
         } catch (err) { 
-            console.error('Network error:', err);
             alert('Network error: ' + err.message); 
         }
     },
@@ -192,7 +180,6 @@
         if (!this.currentReceipt) return;
         try {
             const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
-            console.log('Downloading from:', url);
             const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
             if (res.ok) {
                 const blob = await res.blob();
@@ -203,19 +190,15 @@
                 a.click();
                 URL.revokeObjectURL(url);
                 this.showModal = false;
-                console.log('Download started successfully');
             } else { 
                 const error = await res.json();
-                console.error('Server error:', error);
                 alert('Failed to generate receipt: ' + (error.error || error.message));
             }
         } catch (err) { 
-            console.error('Network error:', err);
             alert('Network error: ' + err.message); 
         }
     },
     
-    // Land Rent Functions
     async loadLandRents() { if (!this.token) return; try { const res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.landRents = await res.json(); } catch (err) { alert('Network error'); } },
     async createLandRent() {
         if (!this.token) return;
@@ -233,7 +216,6 @@
         } catch (err) { alert('Network error'); }
     },
     
-    // Clear Transactions
     async clearTransactions(type) {
         if (!this.token) return;
         try {
@@ -254,11 +236,109 @@
         } catch (err) { alert('Network error: ' + err.message); }
     },
     
-    // Initialize function
+    // Staff Management Functions
+    async loadStaffList() {
+        if (!this.token) return;
+        try {
+            const res = await fetch(getApiUrl('/auth/staff'), {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            if (res.ok) {
+                this.staffList = await res.json();
+            }
+        } catch (err) {
+            console.error('Failed to load staff:', err);
+        }
+    },
+    
+    async saveStaff() {
+        if (!this.token) return;
+        try {
+            let url = getApiUrl('/auth/staff');
+            let method = 'POST';
+            
+            if (this.editingStaff) {
+                url = getApiUrl(`/auth/staff/${this.editingStaff.id}`);
+                method = 'PUT';
+            }
+            
+            const res = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + this.token
+                },
+                body: JSON.stringify(this.staffForm)
+            });
+            
+            if (res.ok) {
+                alert(this.editingStaff ? 'Staff updated successfully!' : 'Staff created successfully!');
+                this.showStaffModal = false;
+                this.staffForm = { name: '', email: '', password: '', role: 'staff' };
+                this.editingStaff = null;
+                await this.loadStaffList();
+            } else {
+                const error = await res.json();
+                alert(error.message || 'Operation failed');
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+    },
+    
+    async editStaffMember(staff) {
+        this.editingStaff = staff;
+        this.staffForm = {
+            name: staff.name,
+            email: staff.email,
+            password: '',
+            role: staff.role
+        };
+        this.showStaffModal = true;
+    },
+    
+    async deleteStaffMember(id) {
+        if (!confirm('Are you sure you want to delete this staff member? This action cannot be undone.')) return;
+        
+        try {
+            const res = await fetch(getApiUrl(`/auth/staff/${id}`), {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            
+            if (res.ok) {
+                alert('Staff deleted successfully!');
+                await this.loadStaffList();
+            } else {
+                const error = await res.json();
+                alert(error.message || 'Delete failed');
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+    },
+    
+    async loadUserInfo() {
+        if (!this.token) return;
+        try {
+            const res = await fetch(getApiUrl('/auth/me'), {
+                headers: { 'Authorization': 'Bearer ' + this.token }
+            });
+            if (res.ok) {
+                const user = await res.json();
+                this.userRole = user.role;
+            }
+        } catch (err) {
+            console.error('Failed to load user info:', err);
+        }
+    },
+    
     init() {
         this.loadSummary();
         this.loadReceipts();
         this.loadLandRents();
+        this.loadStaffList();
+        this.loadUserInfo();
     }
 }" x-init="init()">
 
@@ -437,11 +517,110 @@
             <!-- SETTINGS PAGE -->
             <template x-if="page === 'settings'">
                 <div class="space-y-4 md:space-y-6">
+                    <!-- Staff Management Section - Only visible to Admin -->
+                    <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-4 md:mb-6 flex-wrap gap-2">
+                            <h2 class="text-xl md:text-2xl font-bold text-slate-800">Staff Management</h2>
+                            <button @click="showStaffModal = true; editingStaff = null" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">
+                                <i class="fa-solid fa-user-plus mr-2"></i> Add New Staff
+                            </button>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <template x-for="staff in staffList" :key="staff.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-4 py-3 text-sm" x-text="staff.name"></td>
+                                            <td class="px-4 py-3 text-sm" x-text="staff.email"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800" x-text="staff.role"></span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <button @click="editStaffMember(staff)" class="text-blue-600 hover:text-blue-800 mr-3">
+                                                    <i class="fa-solid fa-edit"></i>
+                                                </button>
+                                                <button @click="deleteStaffMember(staff.id)" class="text-red-600 hover:text-red-800">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                             </td>
+                                         </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                            <div x-show="staffList.length === 0" class="text-center py-8 text-gray-500">
+                                <i class="fa-solid fa-users text-4xl mb-2 text-gray-300"></i>
+                                <p>No staff accounts created yet.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add/Edit Staff Modal -->
+                    <div x-show="showStaffModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
+                        <div @click.away="showStaffModal = false" class="bg-white w-full max-w-md rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold text-slate-800" x-text="editingStaff ? 'Edit Staff' : 'Add New Staff'"></h3>
+                                <button @click="showStaffModal = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                            </div>
+                            <form @submit.prevent="saveStaff()">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Full Name *</label>
+                                        <input type="text" x-model="staffForm.name" required class="w-full p-3 border border-gray-200 rounded-lg text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Email *</label>
+                                        <input type="email" x-model="staffForm.email" required class="w-full p-3 border border-gray-200 rounded-lg text-sm">
+                                    </div>
+                                    <div x-show="!editingStaff">
+                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Password *</label>
+                                        <input type="password" x-model="staffForm.password" required class="w-full p-3 border border-gray-200 rounded-lg text-sm">
+                                    </div>
+                                    <div x-show="editingStaff">
+                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">New Password (leave blank to keep current)</label>
+                                        <input type="password" x-model="staffForm.password" class="w-full p-3 border border-gray-200 rounded-lg text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Role *</label>
+                                        <select x-model="staffForm.role" class="w-full p-3 border border-gray-200 rounded-lg text-sm">
+                                            <option value="manager">Manager</option>
+                                            <option value="agent">Agent</option>
+                                            <option value="secretary">Secretary</option>
+                                            <option value="staff">Staff</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3 mt-6">
+                                    <button type="button" @click="showStaffModal = false" class="flex-1 py-2 bg-gray-200 rounded-lg font-semibold">Cancel</button>
+                                    <button type="submit" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                                        <span x-text="editingStaff ? 'Update' : 'Create'"></span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- System Settings Section -->
                     <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800">System Settings</h2>
-                        <div class="space-y-4 md:space-y-6"><div><label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Assigned User Role</label><select class="w-full p-3 md:p-4 border border-gray-300 rounded-xl bg-gray-50 text-sm md:text-base"><option>Administrator</option><option>Agent</option><option>Secretary</option></select></div><div class="flex items-center justify-between p-3 md:p-4 bg-blue-50 rounded-xl flex-wrap gap-2"><div><h4 class="font-bold text-blue-900 text-sm md:text-base">Developer Mode</h4><p class="text-xs text-blue-700">Access system logs and API endpoints</p></div><input type="checkbox" class="w-5 h-5 md:w-6 md:h-6 rounded"></div></div>
+                        <div class="space-y-4 md:space-y-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Your Account Role</label>
+                                <div class="w-full p-3 bg-gray-100 rounded-xl text-sm" x-text="userRole"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border-2 border-red-200">
+
+                    <!-- Danger Zone (Admin only) -->
+                    <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border-2 border-red-200">
                         <div class="flex items-center gap-3 mb-4 md:mb-6"><i class="fa-solid fa-triangle-exclamation text-xl md:text-2xl text-red-600"></i><h2 class="text-xl md:text-2xl font-bold text-red-600">Danger Zone</h2></div>
                         <div class="space-y-3 md:space-y-4">
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 bg-red-50 rounded-xl gap-3"><div><h4 class="font-bold text-red-800 text-sm md:text-base">Clear All Receipts</h4><p class="text-xs text-red-600">Delete all receipt transactions</p></div><button @click="showClearReceiptsModal = true; clearingType = 'receipts'" class="bg-red-600 text-white px-4 md:px-6 py-2 rounded-lg font-bold text-sm md:text-base">Clear Receipts</button></div>
@@ -449,6 +628,8 @@
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 bg-red-700 rounded-xl gap-3"><div><h4 class="font-bold text-white text-sm md:text-base">⚠️ DELETE ALL TRANSACTIONS ⚠️</h4><p class="text-xs text-red-100">Delete EVERYTHING - Receipts, Land Rentals</p></div><button @click="showClearAllModal = true" class="bg-white text-red-700 px-4 md:px-6 py-2 rounded-lg font-bold text-sm md:text-base">DELETE ALL</button></div>
                         </div>
                     </div>
+                    
+                    <!-- Modals -->
                     <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div><h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3><p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button></div></div></div>
                     <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div><h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3><p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button></div></div></div>
                 </div>
