@@ -6,6 +6,7 @@
     <title>Management Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @media (max-width: 768px) {
@@ -14,28 +15,32 @@
             .main-content { width: 100%; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            .card-padding { padding: 1rem; }
-            .text-responsive { font-size: 0.875rem; }
         }
-        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) { 
+            .stats-grid { grid-template-columns: 1fr; } 
+        }
         button, a, [role="button"] { min-height: 44px; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-        .search-result {
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .search-result:hover {
-            background-color: #dbeafe !important;
+        .search-result { cursor: pointer; transition: background-color 0.2s; }
+        .search-result:hover { background-color: #dbeafe !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
         }
     </style>
     <script>
     const getApiBaseUrl = () => {
         const hostname = window.location.hostname;
         const port = window.location.port;
-        
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
             return 'http://localhost:5000';
         }
@@ -44,307 +49,14 @@
         }
         return 'https://gani-eleke-backend.onrender.com';
     };
-    
     const API_BASE_URL = getApiBaseUrl();
     const getApiUrl = (path) => { 
-        const basePath = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'; 
-        return `${basePath}${path}`;
+        const basePath = API_BASE_URL ? API_BASE_URL + '/api' : '/api'; 
+        return basePath + path;
     };
     </script>
 </head>
-<body class="bg-gray-100 font-sans antialiased" x-data="{
-    page: 'dashboard',
-    mobileMenuOpen: false,
-    token: localStorage.getItem('token'),
-    
-    summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRevenueThisWeek: 0, totalLandRevenue: 0, agentRevenue: 0, agentRevenueThisWeek: 0, totalAgentRevenue: 0 },
-    
-    receipts: [], search: '', showModal: false, currentReceipt: null,
-    customerName: '', customerPhone: '', customerAddress: '', vehicleNo: '', expenses: '', debtAmount: '', companyName: '',
-    items: [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }],
-    
-    landRents: [], landCustomerName: '', landCustomerPhone: '', truckType: '', material: '', amount: '', status: 'pending', landNotes: '',
-    
-    showClearReceiptsModal: false, showClearAllModal: false, clearingType: null,
-    
-    // Staff Management
-    staffList: [],
-    showStaffModal: false,
-    editingStaff: null,
-    staffForm: { name: '', email: '', password: '', role: 'staff' },
-    userRole: '',
-    
-      toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
-    logout() { 
-        localStorage.removeItem('token'); 
-        if (window.location.hostname.includes('vercel.app')) {
-            window.location.href = '/frontend/index.html';
-        } else {
-            window.location.href = 'index.html';
-        }
-    },
-    
-    async loadSummary() {
-        if (!this.token) return;
-        try {
-            const [receiptRes, landRentRes] = await Promise.all([
-                fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } }),
-                fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } })
-            ]);
-            
-            if (receiptRes.ok) {
-                const receiptData = await receiptRes.json();
-                this.summary.totalReceipts = receiptData.totalReceipts || 0;
-                this.summary.totalCredit = receiptData.totalCreditAmount || 0;
-                this.summary.totalDebit = receiptData.totalDebitAmount || 0;
-                this.summary.totalBalance = receiptData.totalBalance || 0;
-                this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
-                this.summary.agentRevenueThisWeek = receiptData.agentRevenueThisWeek || 0;
-                this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
-            }
-            
-            if (landRentRes.ok) {
-                const landData = await landRentRes.json();
-                this.summary.totalLandRevenue = landData.totalRevenue || 0;
-                this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
-            }
-        } catch (err) { 
-            console.error('Failed to load summary', err); 
-        }
-    },
-    
-    addItem() { this.items.push({ description: '', quantity: '', dust: '', initialRate: '', rate: '' }); },
-    removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); },
-    get totalPayment() {
-        let total = 0;
-        for (let item of this.items) if (item.quantity && item.rate) total += (parseFloat(item.quantity) * parseFloat(item.rate)) - (parseFloat(item.dust) || 0);
-        const expensesDebit = parseFloat(this.expenses) || 0;
-        const debt = parseFloat(this.debtAmount) || 0;
-        return Math.max(total - expensesDebit - debt, 0);
-    },
-    get filteredReceipts() { return this.receipts.filter(r => r.customerName?.toLowerCase().includes(this.search.toLowerCase()) || r.receiptNumber?.toLowerCase().includes(this.search.toLowerCase())); },
-    async loadReceipts() { if (!this.token) return; try { const res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.receipts = await res.json(); } catch (err) { console.error('Failed to load receipts', err); } },
-    
-    async createReceipt() {
-        if (!this.token) return;
-        const credits = [];
-        for (let item of this.items) {
-            if (item.description && item.quantity && item.rate) {
-                credits.push({ 
-                    description: item.description, 
-                    qty: parseFloat(item.quantity), 
-                    dust: parseFloat(item.dust) || 0, 
-                    rate: parseFloat(item.rate),
-                    initialRate: parseFloat(item.initialRate) || parseFloat(item.rate)
-                });
-            }
-        }
-        if (credits.length === 0) { alert('Please add at least one item'); return; }
-        const less = [];
-        if (this.expenses && parseFloat(this.expenses) > 0) less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
-        if (this.debtAmount && parseFloat(this.debtAmount) > 0) less.push({ description: 'Debt Deduction', amount: parseFloat(this.debtAmount), date: new Date() });
-        const data = { customerName: this.customerName, customerPhone: this.customerPhone, customerAddress: this.customerAddress, vehicle: this.vehicleNo, companyName: this.companyName, receiptTitle: 'Sales Receipt', credits: credits, less: less, companyInfo: { name: 'Africa Steel Ltd', email: 'ganiolaiya123@gmail.com', phone: '08033281397, 08052944592, 08062514308', address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' }, creditorName: 'Gani Eleke', creditorPhone: '08033281397' };
-        try {
-            const res = await fetch(getApiUrl('/receipts'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(data) });
-            if (res.ok) {
-                const receipt = await res.json();
-                this.receipts.unshift(receipt);
-                this.currentReceipt = receipt;
-                this.showModal = true;
-                this.customerName = ''; this.customerPhone = ''; this.customerAddress = ''; this.vehicleNo = ''; this.expenses = ''; this.debtAmount = ''; this.companyName = '';
-                this.items = [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }];
-                await this.loadSummary();
-            } else { const error = await res.json(); alert(error.message || 'Error creating receipt'); }
-        } catch (err) { alert('Network error: ' + err.message); }
-    },
-    
-    async downloadReceipt(receiptId, type) {
-        if (!receiptId) return;
-        try {
-            const url = getApiUrl(`/receipts/${receiptId}/pdf?type=${type}`);
-            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${receiptId}-${type}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-            } else { 
-                const error = await res.json();
-                alert('Failed to generate receipt: ' + (error.error || error.message));
-            }
-        } catch (err) { 
-            alert('Network error: ' + err.message); 
-        }
-    },
-    
-    async downloadPDF(type) {
-        if (!this.currentReceipt) return;
-        try {
-            const url = getApiUrl(`/receipts/${this.currentReceipt._id}/pdf?type=${type}`);
-            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${this.currentReceipt.receiptNumber}-${type}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-                this.showModal = false;
-            } else { 
-                const error = await res.json();
-                alert('Failed to generate receipt: ' + (error.error || error.message));
-            }
-        } catch (err) { 
-            alert('Network error: ' + err.message); 
-        }
-    },
-    
-    async loadLandRents() { if (!this.token) return; try { const res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); if (res.ok) this.landRents = await res.json(); } catch (err) { alert('Network error'); } },
-    async createLandRent() {
-        if (!this.token) return;
-        const data = { customerName: this.landCustomerName, customerPhone: this.landCustomerPhone, truckType: this.truckType, material: this.material, amount: parseFloat(this.amount) || 0, status: this.status, notes: this.landNotes };
-        if (!data.customerName || !data.truckType || !data.material || data.amount <= 0) { alert('Please fill all required fields'); return; }
-        try {
-            const res = await fetch(getApiUrl('/landrents'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(data) });
-            if (res.ok) {
-                const landRent = await res.json();
-                this.landRents.unshift(landRent);
-                this.landCustomerName = ''; this.landCustomerPhone = ''; this.truckType = ''; this.material = ''; this.amount = ''; this.status = 'pending'; this.landNotes = '';
-                alert('Land rental registered successfully!');
-                await this.loadSummary();
-            } else { const error = await res.json(); alert(error.message || 'Error creating land rental'); }
-        } catch (err) { alert('Network error'); }
-    },
-    
-    async clearTransactions(type) {
-        if (!this.token) return;
-        try {
-            let response;
-            if (type === 'receipts') response = await fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
-            else if (type === 'landrents') response = await fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
-            else if (type === 'all') {
-                await Promise.all([ fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }), fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }) ]);
-                response = { ok: true };
-            }
-            if (response && response.ok) {
-                alert(`${type.toUpperCase()} cleared successfully!`);
-                await this.loadSummary();
-                if (type === 'receipts' || type === 'all') await this.loadReceipts();
-                if (type === 'landrents' || type === 'all') await this.loadLandRents();
-                this.showClearReceiptsModal = false; this.showClearAllModal = false;
-            }
-        } catch (err) { alert('Network error: ' + err.message); }
-    },
-    
-    // Staff Management Functions
-    async loadStaffList() {
-        if (!this.token) return;
-        try {
-            const res = await fetch(getApiUrl('/auth/staff'), {
-                headers: { 'Authorization': 'Bearer ' + this.token }
-            });
-            if (res.ok) {
-                this.staffList = await res.json();
-            }
-        } catch (err) {
-            console.error('Failed to load staff:', err);
-        }
-    },
-    
-    async saveStaff() {
-        if (!this.token) return;
-        try {
-            let url = getApiUrl('/auth/staff');
-            let method = 'POST';
-            
-            if (this.editingStaff) {
-                url = getApiUrl(`/auth/staff/${this.editingStaff.id}`);
-                method = 'PUT';
-            }
-            
-            const res = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + this.token
-                },
-                body: JSON.stringify(this.staffForm)
-            });
-            
-            if (res.ok) {
-                alert(this.editingStaff ? 'Staff updated successfully!' : 'Staff created successfully!');
-                this.showStaffModal = false;
-                this.staffForm = { name: '', email: '', password: '', role: 'staff' };
-                this.editingStaff = null;
-                await this.loadStaffList();
-            } else {
-                const error = await res.json();
-                alert(error.message || 'Operation failed');
-            }
-        } catch (err) {
-            alert('Network error: ' + err.message);
-        }
-    },
-    
-    async editStaffMember(staff) {
-        this.editingStaff = staff;
-        this.staffForm = {
-            name: staff.name,
-            email: staff.email,
-            password: '',
-            role: staff.role
-        };
-        this.showStaffModal = true;
-    },
-    
-    async deleteStaffMember(id) {
-        if (!confirm('Are you sure you want to delete this staff member? This action cannot be undone.')) return;
-        
-        try {
-            const res = await fetch(getApiUrl(`/auth/staff/${id}`), {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + this.token }
-            });
-            
-            if (res.ok) {
-                alert('Staff deleted successfully!');
-                await this.loadStaffList();
-            } else {
-                const error = await res.json();
-                alert(error.message || 'Delete failed');
-            }
-        } catch (err) {
-            alert('Network error: ' + err.message);
-        }
-    },
-    
-    async loadUserInfo() {
-        if (!this.token) return;
-        try {
-            const res = await fetch(getApiUrl('/auth/me'), {
-                headers: { 'Authorization': 'Bearer ' + this.token }
-            });
-            if (res.ok) {
-                const user = await res.json();
-                this.userRole = user.role;
-            }
-        } catch (err) {
-            console.error('Failed to load user info:', err);
-        }
-    },
-    
-    init() {
-        this.loadSummary();
-        this.loadReceipts();
-        this.loadLandRents();
-        this.loadStaffList();
-        this.loadUserInfo();
-    }
-}" x-init="init()">
+<body class="bg-gray-100 font-sans antialiased" x-data="app()" x-init="init()">
 
     <div class="flex h-screen overflow-hidden">
         <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden"><i class="fa-solid fa-bars text-xl"></i></button>
@@ -369,7 +81,7 @@
         <main class="flex-1 overflow-y-auto p-4 md:p-8 main-content">
             
             <!-- DASHBOARD PAGE -->
-            <template x-if="page === 'dashboard'">
+            <div x-show="page === 'dashboard'">
                 <div>
                     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 uppercase tracking-wide">Dashboard Overview</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -381,10 +93,10 @@
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Agent Revenue</p><p class="text-xl md:text-3xl font-black text-amber-600 mt-1" x-text="'₦' + (summary.totalAgentRevenue || 0).toLocaleString()"></p></div>
                     </div>
                 </div>
-            </template>
+            </div>
 
             <!-- RECEIPT PAGE -->
-            <template x-if="page === 'receipt'">
+            <div x-show="page === 'receipt'">
                 <div class="space-y-4 md:space-y-6">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-lg md:text-xl font-bold text-slate-800 uppercase tracking-tight">Find Older Receipt</h2>
@@ -418,31 +130,12 @@
                                 <div class="space-y-3 overflow-x-auto">
                                     <template x-for="(item, index) in items" :key="index">
                                         <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end bg-gray-50 p-3 rounded-lg">
-                                            <div class="col-span-2 md:col-span-3">
-                                                <label class="text-[10px] font-bold uppercase text-slate-400">Description</label>
-                                                <input type="text" x-model="item.description" placeholder="Mix, Cast, etc" class="w-full p-2 text-sm border rounded-lg">
-                                            </div>
-                                            <div class="col-span-1 md:col-span-2">
-                                                <label class="text-[10px] font-bold uppercase text-slate-400">QTY</label>
-                                                <input type="number" x-model="item.quantity" step="0.01" class="w-full p-2 text-sm border rounded-lg">
-                                            </div>
-                                            <div class="col-span-1 md:col-span-2">
-                                                <label class="text-[10px] font-bold uppercase text-slate-400">DUST (KG)</label>
-                                                <input type="number" x-model="item.dust" step="0.01" class="w-full p-2 text-sm border rounded-lg">
-                                            </div>
-                                            <div class="col-span-1 md:col-span-2">
-                                                <label class="text-[10px] font-bold uppercase text-slate-400">I-RATE (₦)</label>
-                                                <input type="number" x-model="item.initialRate" step="0.01" placeholder="Initial rate" class="w-full p-2 text-sm border rounded-lg">
-                                            </div>
-                                            <div class="col-span-1 md:col-span-2">
-                                                <label class="text-[10px] font-bold uppercase text-slate-400">F-RATE (₦)</label>
-                                                <input type="number" x-model="item.rate" step="0.01" placeholder="Final rate" class="w-full p-2 text-sm border rounded-lg">
-                                            </div>
-                                            <div class="col-span-1 md:col-span-1">
-                                                <button type="button" @click="removeItem(index)" class="text-red-500 hover:text-red-700 p-2 mt-4 md:mt-0" x-show="items.length > 1">
-                                                    <i class="fa-solid fa-trash-can"></i>
-                                                </button>
-                                            </div>
+                                            <div class="col-span-2 md:col-span-3"><label class="text-[10px] font-bold uppercase text-slate-400">Description</label><input type="text" x-model="item.description" placeholder="Mix, Cast, etc" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">QTY</label><input type="number" x-model="item.quantity" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">DUST (KG)</label><input type="number" x-model="item.dust" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">I-RATE (₦)</label><input type="number" x-model="item.initialRate" step="0.01" placeholder="Initial rate" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">F-RATE (₦)</label><input type="number" x-model="item.rate" step="0.01" placeholder="Final rate" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-1"><button type="button" @click="removeItem(index)" class="text-red-500 hover:text-red-700 p-2 mt-4 md:mt-0" x-show="items.length > 1"><i class="fa-solid fa-trash-can"></i></button></div>
                                         </div>
                                     </template>
                                 </div>
@@ -469,10 +162,10 @@
                         </div>
                     </div>
                 </div>
-            </template>
+            </div>
 
             <!-- LAND RENT PAGE -->
-            <template x-if="page === 'landrent'">
+            <div x-show="page === 'landrent'">
                 <div class="space-y-4 md:space-y-6">
                     <div class="w-full bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800 border-b pb-4">Land Rental Registration</h2>
@@ -516,58 +209,42 @@
                         <div x-show="landRents.length === 0" class="p-6 md:p-8 text-center text-gray-500"><i class="fa-solid fa-house-chimney-user text-3xl md:text-4xl mb-4 text-gray-300"></i><p class="text-sm md:text-base">No land rental transactions yet.</p></div>
                     </div>
                 </div>
-            </template>
+            </div>
 
             <!-- SETTINGS PAGE -->
-            <template x-if="page === 'settings'">
+            <div x-show="page === 'settings'">
                 <div class="space-y-4 md:space-y-6">
-                    <!-- Staff Management Section - Only visible to Admin -->
                     <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
                         <div class="flex items-center justify-between mb-4 md:mb-6 flex-wrap gap-2">
                             <h2 class="text-xl md:text-2xl font-bold text-slate-800">Staff Management</h2>
-                            <button @click="showStaffModal = true; editingStaff = null" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">
-                                <i class="fa-solid fa-user-plus mr-2"></i> Add New Staff
-                            </button>
+                            <button @click="showStaffModal = true; editingStaff = null" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700"><i class="fa-solid fa-user-plus mr-2"></i> Add New Staff</button>
                         </div>
-                        
                         <div class="overflow-x-auto">
                             <table class="w-full">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
-                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
-                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
-                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                                    </tr>
-                                </thead>
+                                <thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th></tr></thead>
                                 <tbody class="divide-y divide-gray-200">
                                     <template x-for="staff in staffList" :key="staff.id">
                                         <tr class="hover:bg-gray-50">
                                             <td class="px-4 py-3 text-sm" x-text="staff.name"></td>
                                             <td class="px-4 py-3 text-sm" x-text="staff.email"></td>
+                                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800" x-text="staff.role"></span></td>
                                             <td class="px-4 py-3">
-                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800" x-text="staff.role"></span>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <button @click="editStaffMember(staff)" class="text-blue-600 hover:text-blue-800 mr-3">
-                                                    <i class="fa-solid fa-edit"></i>
-                                                </button>
-                                                <button @click="deleteStaffMember(staff.id)" class="text-red-600 hover:text-red-800">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
+                                                <button @click="editStaffMember(staff)" class="text-blue-600 hover:text-blue-800 mr-3"><i class="fa-solid fa-edit"></i></button>
+                                                <button @click="deleteStaffMember(staff.id)" class="text-red-600 hover:text-red-800"><i class="fa-solid fa-trash"></i></button>
+                                            </svg>
+                                            </button>
+                                             </svg>
+                                            </button>
+                                             </div>
                                              </td>
                                          </tr>
                                     </template>
                                 </tbody>
                             </table>
-                            <div x-show="staffList.length === 0" class="text-center py-8 text-gray-500">
-                                <i class="fa-solid fa-users text-4xl mb-2 text-gray-300"></i>
-                                <p>No staff accounts created yet.</p>
-                            </div>
+                            <div x-show="staffList.length === 0" class="text-center py-8 text-gray-500"><i class="fa-solid fa-users text-4xl mb-2 text-gray-300"></i><p>No staff accounts created yet.</p></div>
                         </div>
                     </div>
 
-                    <!-- Add/Edit Staff Modal -->
                     <div x-show="showStaffModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
                         <div @click.away="showStaffModal = false" class="bg-white w-full max-w-md rounded-2xl p-6">
                             <div class="flex justify-between items-center mb-4">
@@ -576,54 +253,25 @@
                             </div>
                             <form @submit.prevent="saveStaff()">
                                 <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Full Name *</label>
-                                        <input type="text" x-model="staffForm.name" required class="w-full p-3 border border-gray-200 rounded-lg text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Email *</label>
-                                        <input type="email" x-model="staffForm.email" required class="w-full p-3 border border-gray-200 rounded-lg text-sm">
-                                    </div>
-                                    <div x-show="!editingStaff">
-                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Password *</label>
-                                        <input type="password" x-model="staffForm.password" required class="w-full p-3 border border-gray-200 rounded-lg text-sm">
-                                    </div>
-                                    <div x-show="editingStaff">
-                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">New Password (leave blank to keep current)</label>
-                                        <input type="password" x-model="staffForm.password" class="w-full p-3 border border-gray-200 rounded-lg text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Role *</label>
-                                        <select x-model="staffForm.role" class="w-full p-3 border border-gray-200 rounded-lg text-sm">
-                                            <option value="manager">Manager</option>
-                                            <option value="agent">Agent</option>
-                                            <option value="secretary">Secretary</option>
-                                            <option value="staff">Staff</option>
-                                        </select>
-                                    </div>
+                                    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Full Name *</label><input type="text" x-model="staffForm.name" required class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Email *</label><input type="email" x-model="staffForm.email" required class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div x-show="!editingStaff"><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Password *</label><input type="password" x-model="staffForm.password" required class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div x-show="editingStaff"><label class="block text-xs font-bold uppercase text-gray-500 mb-1">New Password (leave blank to keep current)</label><input type="password" x-model="staffForm.password" class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Role *</label><select x-model="staffForm.role" class="w-full p-3 border border-gray-200 rounded-lg text-sm"><option value="manager">Manager</option><option value="agent">Agent</option><option value="secretary">Secretary</option><option value="staff">Staff</option></select></div>
                                 </div>
                                 <div class="flex gap-3 mt-6">
                                     <button type="button" @click="showStaffModal = false" class="flex-1 py-2 bg-gray-200 rounded-lg font-semibold">Cancel</button>
-                                    <button type="submit" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
-                                        <span x-text="editingStaff ? 'Update' : 'Create'"></span>
-                                    </button>
+                                    <button type="submit" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"><span x-text="editingStaff ? 'Update' : 'Create'"></span></button>
                                 </div>
                             </form>
                         </div>
                     </div>
 
-                    <!-- System Settings Section -->
                     <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800">System Settings</h2>
-                        <div class="space-y-4 md:space-y-6">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Your Account Role</label>
-                                <div class="w-full p-3 bg-gray-100 rounded-xl text-sm" x-text="userRole"></div>
-                            </div>
-                        </div>
+                        <div class="space-y-4 md:space-y-6"><div><label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Your Account Role</label><div class="w-full p-3 bg-gray-100 rounded-xl text-sm" x-text="userRole"></div></div></div>
                     </div>
 
-                    <!-- Danger Zone (Admin only) -->
                     <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border-2 border-red-200">
                         <div class="flex items-center gap-3 mb-4 md:mb-6"><i class="fa-solid fa-triangle-exclamation text-xl md:text-2xl text-red-600"></i><h2 class="text-xl md:text-2xl font-bold text-red-600">Danger Zone</h2></div>
                         <div class="space-y-3 md:space-y-4">
@@ -633,11 +281,10 @@
                         </div>
                     </div>
                     
-                    <!-- Modals -->
                     <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div><h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3><p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button></div></div></div>
                     <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div><h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3><p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button></div></div></div>
                 </div>
-            </template>
+            </div>
 
         </main>
     </div>
@@ -645,6 +292,408 @@
     <script>
         if (!localStorage.getItem('token')) {
             window.location.href = 'index.html';
+        }
+
+        function app() {
+            return {
+                // State variables
+                page: 'dashboard',
+                mobileMenuOpen: false,
+                token: localStorage.getItem('token'),
+                summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRevenueThisWeek: 0, totalLandRevenue: 0, agentRevenue: 0, agentRevenueThisWeek: 0, totalAgentRevenue: 0 },
+                receipts: [],
+                search: '',
+                showModal: false,
+                currentReceipt: null,
+                customerName: '',
+                customerPhone: '',
+                customerAddress: '',
+                vehicleNo: '',
+                expenses: '',
+                debtAmount: '',
+                companyName: '',
+                items: [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }],
+                landRents: [],
+                landCustomerName: '',
+                landCustomerPhone: '',
+                truckType: '',
+                material: '',
+                amount: '',
+                status: 'pending',
+                landNotes: '',
+                showClearReceiptsModal: false,
+                showClearAllModal: false,
+                clearingType: null,
+                staffList: [],
+                showStaffModal: false,
+                editingStaff: null,
+                staffForm: { name: '', email: '', password: '', role: 'staff' },
+                userRole: '',
+                isGenerating: false,
+
+                // Methods
+                toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
+                
+                logout() { 
+                    localStorage.removeItem('token'); 
+                    window.location.href = 'index.html';
+                },
+                
+                showLoadingToast(message) {
+                    let toast = document.createElement('div');
+                    toast.id = 'loading-toast';
+                    toast.innerHTML = '<div class="loading-spinner"></div> ' + message;
+                    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e3a8a;color:white;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;';
+                    document.body.appendChild(toast);
+                    return toast;
+                },
+                
+                hideLoadingToast() {
+                    let toast = document.getElementById('loading-toast');
+                    if (toast) toast.remove();
+                },
+                
+                async loadSummary() {
+                    if (!this.token) return;
+                    try {
+                        let receiptRes = await fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        let landRentRes = await fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (receiptRes.ok) {
+                            let receiptData = await receiptRes.json();
+                            this.summary.totalReceipts = receiptData.totalReceipts || 0;
+                            this.summary.totalCredit = receiptData.totalCreditAmount || 0;
+                            this.summary.totalDebit = receiptData.totalDebitAmount || 0;
+                            this.summary.totalBalance = receiptData.totalBalance || 0;
+                            this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
+                            this.summary.agentRevenueThisWeek = receiptData.agentRevenueThisWeek || 0;
+                            this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
+                        }
+                        if (landRentRes.ok) {
+                            let landData = await landRentRes.json();
+                            this.summary.totalLandRevenue = landData.totalRevenue || 0;
+                            this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
+                        }
+                    } catch (err) { 
+                        console.error('Failed to load summary', err); 
+                    }
+                },
+                
+                addItem() { this.items.push({ description: '', quantity: '', dust: '', initialRate: '', rate: '' }); },
+                removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); },
+                
+                get totalPayment() {
+                    let total = 0;
+                    for (let item of this.items) {
+                        if (item.quantity && item.rate) {
+                            total += (parseFloat(item.quantity) * parseFloat(item.rate)) - (parseFloat(item.dust) || 0);
+                        }
+                    }
+                    let expensesDebit = parseFloat(this.expenses) || 0;
+                    let debt = parseFloat(this.debtAmount) || 0;
+                    return Math.max(total - expensesDebit - debt, 0);
+                },
+                
+                get filteredReceipts() { 
+                    return this.receipts.filter(r => {
+                        return (r.customerName && r.customerName.toLowerCase().includes(this.search.toLowerCase())) || 
+                               (r.receiptNumber && r.receiptNumber.toLowerCase().includes(this.search.toLowerCase()));
+                    }); 
+                },
+                
+                async loadReceipts() { 
+                    if (!this.token) return; 
+                    try { 
+                        let res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } }); 
+                        if (res.ok) this.receipts = await res.json(); 
+                    } catch (err) { console.error('Failed to load receipts', err); } 
+                },
+                
+                async createReceipt() {
+                    if (!this.token) return;
+                    let credits = [];
+                    for (let item of this.items) {
+                        if (item.description && item.quantity && item.rate) {
+                            credits.push({ 
+                                description: item.description, 
+                                qty: parseFloat(item.quantity), 
+                                dust: parseFloat(item.dust) || 0, 
+                                rate: parseFloat(item.rate),
+                                initialRate: parseFloat(item.initialRate) || parseFloat(item.rate)
+                            });
+                        }
+                    }
+                    if (credits.length === 0) { alert('Please add at least one item'); return; }
+                    let less = [];
+                    if (this.expenses && parseFloat(this.expenses) > 0) less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
+                    if (this.debtAmount && parseFloat(this.debtAmount) > 0) less.push({ description: 'Debt Deduction', amount: parseFloat(this.debtAmount), date: new Date() });
+                    let data = { 
+                        customerName: this.customerName, 
+                        customerPhone: this.customerPhone, 
+                        customerAddress: this.customerAddress, 
+                        vehicle: this.vehicleNo, 
+                        companyName: this.companyName, 
+                        receiptTitle: 'Sales Receipt', 
+                        credits: credits, 
+                        less: less, 
+                        companyInfo: { 
+                            name: 'Africa Steel Ltd', 
+                            email: 'ganiolaiya123@gmail.com', 
+                            phone: '08033281397, 08052944592, 08062514308', 
+                            address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' 
+                        }, 
+                        creditorName: 'Gani Eleke', 
+                        creditorPhone: '08033281397' 
+                    };
+                    try {
+                        let res = await fetch(getApiUrl('/receipts'), { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, 
+                            body: JSON.stringify(data) 
+                        });
+                        if (res.ok) {
+                            let receipt = await res.json();
+                            this.receipts.unshift(receipt);
+                            this.currentReceipt = receipt;
+                            this.showModal = true;
+                            this.customerName = ''; 
+                            this.customerPhone = ''; 
+                            this.customerAddress = ''; 
+                            this.vehicleNo = ''; 
+                            this.expenses = ''; 
+                            this.debtAmount = ''; 
+                            this.companyName = '';
+                            this.items = [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }];
+                            await this.loadSummary();
+                        } else { 
+                            let error = await res.json(); 
+                            alert(error.message || 'Error creating receipt'); 
+                        }
+                    } catch (err) { 
+                        alert('Network error: ' + err.message); 
+                    }
+                },
+                
+                async downloadReceipt(receiptId, type) {
+                    if (!receiptId) return;
+                    if (this.isGenerating) {
+                        alert('Please wait, generating receipt...');
+                        return;
+                    }
+                    this.isGenerating = true;
+                    this.showLoadingToast('Generating receipt image, please wait...');
+                    try {
+                        let url = getApiUrl('/receipts/' + receiptId + '/html?type=' + type);
+                        console.log('Fetching HTML from:', url);
+                        let res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            let html = await res.text();
+                            let hiddenContainer = document.createElement('div');
+                            hiddenContainer.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:800px;background:white;padding:0;margin:0;z-index:-1;';
+                            document.body.appendChild(hiddenContainer);
+                            hiddenContainer.innerHTML = html;
+                            await new Promise(resolve => setTimeout(resolve, 800));
+                            let receiptElement = hiddenContainer.querySelector('.receipt-container');
+                            if (receiptElement) {
+                                let canvas = await html2canvas(receiptElement, {
+                                    scale: 2.5,
+                                    backgroundColor: '#ffffff',
+                                    logging: false,
+                                    useCORS: true,
+                                    allowTaint: false
+                                });
+                                let link = document.createElement('a');
+                                link.download = 'receipt-' + receiptId + '-' + type + '.png';
+                                link.href = canvas.toDataURL('image/png');
+                                link.click();
+                                console.log('Download started successfully');
+                            } else {
+                                alert('Could not find receipt element');
+                            }
+                            document.body.removeChild(hiddenContainer);
+                        } else {
+                            let error = await res.json();
+                            console.error('Server error:', error);
+                            alert('Failed to generate receipt: ' + (error.error || error.message));
+                        }
+                    } catch (err) {
+                        console.error('Error:', err);
+                        alert('Error generating receipt: ' + err.message);
+                    } finally {
+                        this.isGenerating = false;
+                        this.hideLoadingToast();
+                    }
+                },
+                
+                async downloadPDF(type) {
+                    if (!this.currentReceipt) return;
+                    await this.downloadReceipt(this.currentReceipt._id, type);
+                },
+                
+                async loadLandRents() { 
+                    if (!this.token) return; 
+                    try { 
+                        let res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); 
+                        if (res.ok) this.landRents = await res.json(); 
+                    } catch (err) { alert('Network error'); } 
+                },
+                
+                async createLandRent() {
+                    if (!this.token) return;
+                    let data = { 
+                        customerName: this.landCustomerName, 
+                        customerPhone: this.landCustomerPhone, 
+                        truckType: this.truckType, 
+                        material: this.material, 
+                        amount: parseFloat(this.amount) || 0, 
+                        status: this.status, 
+                        notes: this.landNotes 
+                    };
+                    if (!data.customerName || !data.truckType || !data.material || data.amount <= 0) { 
+                        alert('Please fill all required fields'); 
+                        return; 
+                    }
+                    try {
+                        let res = await fetch(getApiUrl('/landrents'), { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, 
+                            body: JSON.stringify(data) 
+                        });
+                        if (res.ok) {
+                            let landRent = await res.json();
+                            this.landRents.unshift(landRent);
+                            this.landCustomerName = ''; 
+                            this.landCustomerPhone = ''; 
+                            this.truckType = ''; 
+                            this.material = ''; 
+                            this.amount = ''; 
+                            this.status = 'pending'; 
+                            this.landNotes = '';
+                            alert('Land rental registered successfully!');
+                            await this.loadSummary();
+                        } else { 
+                            let error = await res.json(); 
+                            alert(error.message || 'Error creating land rental'); 
+                        }
+                    } catch (err) { 
+                        alert('Network error'); 
+                    }
+                },
+                
+                async clearTransactions(type) {
+                    if (!this.token) return;
+                    try {
+                        let response;
+                        if (type === 'receipts') response = await fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        else if (type === 'landrents') response = await fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        else if (type === 'all') {
+                            await Promise.all([ 
+                                fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }), 
+                                fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }) 
+                            ]);
+                            response = { ok: true };
+                        }
+                        if (response && response.ok) {
+                            alert(type.toUpperCase() + ' cleared successfully!');
+                            await this.loadSummary();
+                            if (type === 'receipts' || type === 'all') await this.loadReceipts();
+                            if (type === 'landrents' || type === 'all') await this.loadLandRents();
+                            this.showClearReceiptsModal = false; 
+                            this.showClearAllModal = false;
+                        }
+                    } catch (err) { 
+                        alert('Network error: ' + err.message); 
+                    }
+                },
+                
+                async loadStaffList() {
+                    if (!this.token) return;
+                    try {
+                        let res = await fetch(getApiUrl('/auth/staff'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            this.staffList = await res.json();
+                        }
+                    } catch (err) {
+                        console.error('Failed to load staff:', err);
+                    }
+                },
+                
+                async saveStaff() {
+                    if (!this.token) return;
+                    try {
+                        let url = getApiUrl('/auth/staff');
+                        let method = 'POST';
+                        if (this.editingStaff) {
+                            url = getApiUrl('/auth/staff/' + this.editingStaff.id);
+                            method = 'PUT';
+                        }
+                        let res = await fetch(url, {
+                            method: method,
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                            body: JSON.stringify(this.staffForm)
+                        });
+                        if (res.ok) {
+                            alert(this.editingStaff ? 'Staff updated successfully!' : 'Staff created successfully!');
+                            this.showStaffModal = false;
+                            this.staffForm = { name: '', email: '', password: '', role: 'staff' };
+                            this.editingStaff = null;
+                            await this.loadStaffList();
+                        } else {
+                            let error = await res.json();
+                            alert(error.message || 'Operation failed');
+                        }
+                    } catch (err) {
+                        alert('Network error: ' + err.message);
+                    }
+                },
+                
+                editStaffMember(staff) {
+                    this.editingStaff = staff;
+                    this.staffForm = {
+                        name: staff.name,
+                        email: staff.email,
+                        password: '',
+                        role: staff.role
+                    };
+                    this.showStaffModal = true;
+                },
+                
+                async deleteStaffMember(id) {
+                    if (!confirm('Are you sure you want to delete this staff member? This action cannot be undone.')) return;
+                    try {
+                        let res = await fetch(getApiUrl('/auth/staff/' + id), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            alert('Staff deleted successfully!');
+                            await this.loadStaffList();
+                        } else {
+                            let error = await res.json();
+                            alert(error.message || 'Delete failed');
+                        }
+                    } catch (err) {
+                        alert('Network error: ' + err.message);
+                    }
+                },
+                
+                async loadUserInfo() {
+                    if (!this.token) return;
+                    try {
+                        let res = await fetch(getApiUrl('/auth/me'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            let user = await res.json();
+                            this.userRole = user.role;
+                        }
+                    } catch (err) {
+                        console.error('Failed to load user info:', err);
+                    }
+                },
+                
+                init() {
+                    this.loadSummary();
+                    this.loadReceipts();
+                    this.loadLandRents();
+                    this.loadStaffList();
+                    this.loadUserInfo();
+                }
+            }
         }
     </script>
 </body>
