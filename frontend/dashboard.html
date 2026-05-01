@@ -42,25 +42,34 @@
     </style>
     <script>
     const getApiBaseUrl = () => {
-        // UPDATE THIS TO YOUR RAILWAY URL AFTER DEPLOYMENT
-        // Example: return 'https://your-app-name.up.railway.app';
         const hostname = window.location.hostname;
         const port = window.location.port;
+        
+        // Local development
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
             return 'http://localhost:5000';
         }
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
             return '';
         }
-        // CHANGE THIS TO YOUR RAILWAY URL AFTER DEPLOYMENT
-        return 'gani-eleke-backend-production.up.railway.app'; // Replace with Railway URL
+        
+        // Railway production URL - MAKE SURE https:// is included
+        return 'https://gani-eleke-backend-production.up.railway.app';
     };
+    
     const API_BASE_URL = getApiBaseUrl();
     const getApiUrl = (path) => { 
         const basePath = API_BASE_URL ? API_BASE_URL + '/api' : '/api'; 
         return basePath + path;
     };
-    </script>
+    
+    // Test if backend is reachable (optional, remove if causes issues)
+    console.log('API Base URL:', API_BASE_URL);
+    fetch(API_BASE_URL + '/api/health')
+        .then(res => res.json())
+        .then(data => console.log('Backend health check:', data))
+        .catch(err => console.error('Backend not reachable:', err));
+</script>
 </head>
 <body class="bg-gray-100 font-sans antialiased" x-data="app()" x-init="init()" x-cloak>
 
