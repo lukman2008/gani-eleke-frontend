@@ -9,6 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Alpine.js cloak - prevents flashing */
+        [x-cloak] { display: none !important; }
+        
         @media (max-width: 768px) {
             .sidebar-collapsed { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 50; height: 100%; }
             .sidebar-open { transform: translateX(0); }
@@ -39,6 +42,8 @@
     </style>
     <script>
     const getApiBaseUrl = () => {
+        // UPDATE THIS TO YOUR RAILWAY URL AFTER DEPLOYMENT
+        // Example: return 'https://your-app-name.up.railway.app';
         const hostname = window.location.hostname;
         const port = window.location.port;
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
@@ -47,7 +52,8 @@
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5000') {
             return '';
         }
-        return 'https://gani-eleke-backend.onrender.com';
+        // CHANGE THIS TO YOUR RAILWAY URL AFTER DEPLOYMENT
+        return 'https://gani-eleke-backend.onrender.com'; // Replace with Railway URL
     };
     const API_BASE_URL = getApiBaseUrl();
     const getApiUrl = (path) => { 
@@ -56,7 +62,7 @@
     };
     </script>
 </head>
-<body class="bg-gray-100 font-sans antialiased" x-data="app()" x-init="init()">
+<body class="bg-gray-100 font-sans antialiased" x-data="app()" x-init="init()" x-cloak>
 
     <div class="flex h-screen overflow-hidden">
         <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden"><i class="fa-solid fa-bars text-xl"></i></button>
@@ -81,7 +87,7 @@
         <main class="flex-1 overflow-y-auto p-4 md:p-8 main-content">
             
             <!-- DASHBOARD PAGE -->
-            <div x-show="page === 'dashboard'">
+            <div x-show="page === 'dashboard'" x-cloak>
                 <div>
                     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 uppercase tracking-wide">Dashboard Overview</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -96,7 +102,7 @@
             </div>
 
             <!-- RECEIPT PAGE -->
-            <div x-show="page === 'receipt'">
+            <div x-show="page === 'receipt'" x-cloak>
                 <div class="space-y-4 md:space-y-6">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-lg md:text-xl font-bold text-slate-800 uppercase tracking-tight">Find Older Receipt</h2>
@@ -149,6 +155,7 @@
                         </form>
                     </div>
 
+                    <!-- MODAL - Fixed with x-cloak to prevent flashing -->
                     <div x-show="showModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                         <div @click.away="showModal = false" class="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 md:p-8 text-center">
                             <div class="w-16 h-16 md:w-20 md:h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl"><i class="fa-solid fa-file-invoice"></i></div>
@@ -165,7 +172,7 @@
             </div>
 
             <!-- LAND RENT PAGE -->
-            <div x-show="page === 'landrent'">
+            <div x-show="page === 'landrent'" x-cloak>
                 <div class="space-y-4 md:space-y-6">
                     <div class="w-full bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800 border-b pb-4">Land Rental Registration</h2>
@@ -212,7 +219,7 @@
             </div>
 
             <!-- SETTINGS PAGE -->
-            <div x-show="page === 'settings'">
+            <div x-show="page === 'settings'" x-cloak>
                 <div class="space-y-4 md:space-y-6">
                     <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
                         <div class="flex items-center justify-between mb-4 md:mb-6 flex-wrap gap-2">
@@ -221,7 +228,7 @@
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full">
-                                <thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th></tr></thead>
+                                <thead class="bg-gray-50"><td><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th></tr></thead>
                                 <tbody class="divide-y divide-gray-200">
                                     <template x-for="staff in staffList" :key="staff.id">
                                         <tr class="hover:bg-gray-50">
@@ -231,20 +238,18 @@
                                             <td class="px-4 py-3">
                                                 <button @click="editStaffMember(staff)" class="text-blue-600 hover:text-blue-800 mr-3"><i class="fa-solid fa-edit"></i></button>
                                                 <button @click="deleteStaffMember(staff.id)" class="text-red-600 hover:text-red-800"><i class="fa-solid fa-trash"></i></button>
-                                            </svg>
-                                            </button>
-                                             </svg>
-                                            </button>
+                                            </div>
                                              </div>
-                                             </td>
-                                         </tr>
+                                          </div>
+                                       </tr>
                                     </template>
                                 </tbody>
-                            </table>
+                             </table>
                             <div x-show="staffList.length === 0" class="text-center py-8 text-gray-500"><i class="fa-solid fa-users text-4xl mb-2 text-gray-300"></i><p>No staff accounts created yet.</p></div>
                         </div>
                     </div>
 
+                    <!-- Staff Modal - Fixed with x-cloak -->
                     <div x-show="showStaffModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
                         <div @click.away="showStaffModal = false" class="bg-white w-full max-w-md rounded-2xl p-6">
                             <div class="flex justify-between items-center mb-4">
@@ -267,6 +272,32 @@
                         </div>
                     </div>
 
+                    <!-- Clear Receipts Modal - Fixed with x-cloak -->
+                    <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
+                        <div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center">
+                            <div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div>
+                            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3>
+                            <p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p>
+                            <div class="flex gap-3 md:gap-4">
+                                <button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button>
+                                <button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clear All Modal - Fixed with x-cloak -->
+                    <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
+                        <div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300">
+                            <div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div>
+                            <h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3>
+                            <p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p>
+                            <div class="flex gap-3 md:gap-4">
+                                <button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button>
+                                <button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800">System Settings</h2>
                         <div class="space-y-4 md:space-y-6"><div><label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Your Account Role</label><div class="w-full p-3 bg-gray-100 rounded-xl text-sm" x-text="userRole"></div></div></div>
@@ -280,9 +311,6 @@
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 bg-red-700 rounded-xl gap-3"><div><h4 class="font-bold text-white text-sm md:text-base">⚠️ DELETE ALL TRANSACTIONS ⚠️</h4><p class="text-xs text-red-100">Delete EVERYTHING - Receipts, Land Rentals</p></div><button @click="showClearAllModal = true" class="bg-white text-red-700 px-4 md:px-6 py-2 rounded-lg font-bold text-sm md:text-base">DELETE ALL</button></div>
                         </div>
                     </div>
-                    
-                    <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div><h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3><p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button></div></div></div>
-                    <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div><h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3><p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button></div></div></div>
                 </div>
             </div>
 
@@ -296,7 +324,7 @@
 
         function app() {
             return {
-                // State variables
+                // State variables - all initialized to false/non-flashing states
                 page: 'dashboard',
                 mobileMenuOpen: false,
                 token: localStorage.getItem('token'),
@@ -331,14 +359,17 @@
                 userRole: '',
                 isGenerating: false,
 
-                // Methods
                 toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
                 
                 logout() { 
                     localStorage.removeItem('token'); 
-                    window.location.href = 'index.html';
+                    if (window.location.hostname.includes('vercel.app')) {
+                        window.location.href = '/frontend/index.html';
+                    } else {
+                        window.location.href = 'index.html';
+                    }
                 },
-                
+                            
                 showLoadingToast(message) {
                     let toast = document.createElement('div');
                     toast.id = 'loading-toast';
