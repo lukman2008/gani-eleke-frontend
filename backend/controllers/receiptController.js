@@ -459,6 +459,5 @@ module.exports = {
     getReceiptSummary,
     clearReceipts,
     getReceiptHTML,
-    getReceiptHistory,
-    getReceiptHTML  // Changed from getReceiptPdf to getReceiptHTML
+    getReceiptHistory
 };
