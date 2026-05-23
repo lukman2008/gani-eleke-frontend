@@ -1,0 +1,463 @@
+﻿const Receipt = require('../models/Receipt');
+const fs = require('fs');
+const path = require('path');
+const handlebars = require('handlebars');
+
+/* =========================
+   HELPERS & CONFIG
+========================= */
+
+const formatCurrency = (amount) => {
+    const absAmount = Math.abs(amount);
+    return `NGN${absAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatNumber = (num) => num.toLocaleString('en-US');
+
+const getLogoUrl = () => 'https://gani-eleke-project.vercel.app/frontend/img/logo.jpeg';
+
+/* =========================
+   TEMPLATE COMPILATION
+========================= */
+
+const customerTemplatePath = path.join(__dirname, '../receipt-templates/customer-receipt.html');
+const companyTemplatePath = path.join(__dirname, '../receipt-templates/company-receipt.html');
+
+let compiledCustomerTemplate;
+let compiledCompanyTemplate;
+
+try {
+    const customerTemplate = fs.readFileSync(customerTemplatePath, 'utf8');
+    const companyTemplate = fs.readFileSync(companyTemplatePath, 'utf8');
+    compiledCustomerTemplate = handlebars.compile(customerTemplate);
+    compiledCompanyTemplate = handlebars.compile(companyTemplate);
+    console.log('Templates loaded successfully');
+} catch (error) {
+    console.error('Error loading templates:', error);
+}
+
+/* =========================
+   COMPUTE RECEIPT - CORRECTED CALCULATION
+   Client's correction:
+   - I-AMOUNT (Cost Price) = QTY × I-RATE (use FULL quantity)
+   - F-AMOUNT (Selling Price) = (QTY - DUST) × F-RATE
+   - Profit = F-AMOUNT - I-AMOUNT
+   - Net Profit = Profit - Offloading
+   - Debt does NOT affect profit
+========================= */
+
+const computeReceipt = ({ customerName, credits = [], less = [], note }) => {
+  const normalizedCredits = credits.map((item) => {
+    const qty = Number(item.qty || 0);
+    const rate = Number(item.rate || 0);
+    const dust = Number(item.dust || 0);
+    const initialRate = Number(item.initialRate) || rate;
+    
+    // CORRECTED: I-AMOUNT uses FULL QTY (NOT minus dust)
+    const iAmount = qty * initialRate;
+    
+    // CORRECTED: F-AMOUNT uses effective QTY (QTY - DUST)
+    const effectiveQty = Math.max(0, qty - dust);
+    const fAmount = effectiveQty * rate;
+    
+    // Profit = F-AMOUNT - I-AMOUNT
+    const profit = fAmount - iAmount;
+
+    return {
+      description: item.description || '',
+      qty: qty,
+      dust: dust,
+      effectiveQty: effectiveQty,
+      rate: rate,
+      initialRate: initialRate,
+      iAmount: iAmount,
+      fAmount: fAmount,
+      profit: profit,
+    };
+  });
+
+  const normalizedLess = less.map((item) => ({
+    description: item.description || '',
+    amount: Number(item.amount || 0),
+  }));
+
+  const offloadingAmount = normalizedLess.find(l => l.description === 'Offloading')?.amount || 0;
+  const debtAmount = normalizedLess.find(l => l.description === 'Debt Deduction')?.amount || 0;
+  
+  const totalSellingPrice = normalizedCredits.reduce((sum, i) => sum + i.fAmount, 0);
+  const totalCostPrice = normalizedCredits.reduce((sum, i) => sum + i.iAmount, 0);
+  const totalProfitBeforeOffloading = totalSellingPrice - totalCostPrice;
+  const netProfit = Math.max(0, totalProfitBeforeOffloading - offloadingAmount);
+  const totalDeductions = offloadingAmount + debtAmount;
+  const balance = Math.max(0, totalSellingPrice - totalDeductions);
+
+  return {
+    customerName,
+    credits: normalizedCredits,
+    less: normalizedLess,
+    subTotal: totalSellingPrice,
+    totalCostPrice: totalCostPrice,
+    totalProfitBeforeOffloading: totalProfitBeforeOffloading,
+    netProfit: netProfit,
+    offloadingAmount: offloadingAmount,
+    debtAmount: debtAmount,
+    debitTotal: totalDeductions,
+    balance: balance,
+    note,
+  };
+};
+
+/* =========================
+   CREATE RECEIPT
+========================= */
+
+const createReceipt = async (req, res) => {
+  const { customerName, credits, less, note, companyName, ...rest } = req.body;
+
+  if (!customerName || !credits?.length) {
+    return res.status(400).json({ message: 'Customer name and credits required' });
+  }
+
+  const data = computeReceipt({ customerName, credits, less, note });
+
+  const receipt = await Receipt.create({
+    ...rest,
+    ...data,
+    companyName: companyName || '',
+    receiptNumber: `RCPT-${Date.now()}`,
+    createdBy: req.user._id
+  });
+
+  res.status(201).json(receipt);
+};
+
+/* =========================
+   GET ALL RECEIPTS
+========================= */
+
+const getReceipts = async (req, res) => {
+  const receipts = await Receipt.find().populate('createdBy', 'name email role').sort({ createdAt: -1 });
+  res.json(receipts);
+};
+
+/* =========================
+   GET ONE RECEIPT
+========================= */
+
+const getReceiptById = async (req, res) => {
+  const receipt = await Receipt.findById(req.params.id).populate('createdBy', 'name email role');
+  if (!receipt) return res.status(404).json({ message: 'Not found' });
+  res.json(receipt);
+};
+
+/* =========================
+   UPDATE RECEIPT
+========================= */
+
+const updateReceipt = async (req, res) => {
+  const receipt = await Receipt.findById(req.params.id);
+  if (!receipt) {
+    return res.status(404).json({ message: 'Receipt not found.' });
+  }
+
+  const { companyInfo, receiptTitle, customerName, customerPhone, customerAddress, vehicle, creditorName, creditorPhone, credits, less, note, date, companyName } = req.body;
+  
+  const data = computeReceipt({
+    customerName: customerName || receipt.customerName,
+    credits: credits || receipt.credits,
+    less: less || receipt.less,
+    note: note ?? receipt.note,
+  });
+
+  if (date) receipt.date = new Date(date);
+  if (receiptTitle) receipt.receiptTitle = receiptTitle;
+  if (companyInfo) receipt.companyInfo = companyInfo;
+  if (vehicle) receipt.vehicle = vehicle;
+  if (customerAddress) receipt.customerAddress = customerAddress;
+  if (creditorName) receipt.creditorName = creditorName;
+  if (creditorPhone) receipt.creditorPhone = creditorPhone;
+  if (customerName) receipt.customerName = data.customerName;
+  if (customerPhone) receipt.customerPhone = customerPhone;
+  if (companyName) receipt.companyName = companyName;
+  
+  receipt.credits = data.credits;
+  receipt.less = data.less;
+  receipt.subTotal = data.subTotal;
+  receipt.totalCostPrice = data.totalCostPrice;
+  receipt.totalProfitBeforeOffloading = data.totalProfitBeforeOffloading;
+  receipt.netProfit = data.netProfit;
+  receipt.offloadingAmount = data.offloadingAmount;
+  receipt.debtAmount = data.debtAmount;
+  receipt.debitTotal = data.debitTotal;
+  receipt.balance = data.balance;
+  if (note !== undefined) receipt.note = data.note;
+
+  await receipt.save();
+  res.json(receipt);
+};
+
+/* =========================
+   GET RECEIPT HISTORY (for history page)
+========================= */
+
+const getReceiptHistory = async (req, res) => {
+    try {
+        const receipts = await Receipt.find()
+            .populate('createdBy', 'name email')
+            .sort({ createdAt: -1 });
+        
+        const historyData = receipts.map(receipt => {
+            // Calculate total selling price (F-AMOUNT sum)
+            let totalSellingPrice = 0;
+            for (const item of receipt.credits) {
+                const effectiveQty = Math.max(0, (item.qty || 0) - (item.dust || 0));
+                const fAmount = effectiveQty * (item.rate || 0);
+                totalSellingPrice += fAmount;
+            }
+            
+            const totalDeductions = (receipt.debitTotal || 0);
+            const balance = Math.max(0, totalSellingPrice - totalDeductions);
+            
+            // Group by month
+            const date = receipt.createdAt || receipt.date || new Date();
+            const monthYear = date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+            
+            return {
+                id: receipt._id,
+                receiptNumber: receipt.receiptNumber,
+                customerName: receipt.customerName,
+                customerPhone: receipt.customerPhone,
+                date: date,
+                monthYear: monthYear,
+                totalAmount: totalSellingPrice,
+                balance: balance,
+                debitTotal: totalDeductions,
+                createdAt: receipt.createdAt
+            };
+        });
+        
+        // Group by month
+        const groupedByMonth = {};
+        for (const receipt of historyData) {
+            if (!groupedByMonth[receipt.monthYear]) {
+                groupedByMonth[receipt.monthYear] = [];
+            }
+            groupedByMonth[receipt.monthYear].push(receipt);
+        }
+        
+        res.json({
+            success: true,
+            allReceipts: historyData,
+            groupedByMonth: groupedByMonth,
+            totalCount: historyData.length
+        });
+    } catch (error) {
+        console.error('Error in getReceiptHistory:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/* =========================
+   DELETE RECEIPT
+========================= */
+
+const deleteReceipt = async (req, res) => {
+  const receipt = await Receipt.findById(req.params.id);
+  if (!receipt) {
+    return res.status(404).json({ message: 'Receipt not found.' });
+  }
+  await receipt.deleteOne();
+  res.json({ message: 'Receipt deleted.' });
+};
+
+/* =========================
+   GET RECEIPT SUMMARY
+========================= */
+
+const getReceiptSummary = async (req, res) => {
+  const receipts = await Receipt.find();
+  const totalReceipts = receipts.length;
+  const totalCreditAmount = receipts.reduce((sum, receipt) => sum + (receipt.subTotal || 0), 0);
+  const totalDebitAmount = receipts.reduce((sum, receipt) => sum + (receipt.debitTotal || 0), 0);
+  const totalBalance = receipts.reduce((sum, receipt) => sum + (receipt.balance || 0), 0);
+  
+  let totalAgentRevenue = 0;
+  let agentRevenueThisWeek = 0;
+  
+  const now = new Date();
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(now.getDate() - 7);
+  oneWeekAgo.setHours(0, 0, 0, 0);
+  
+  for (const receipt of receipts) {
+    const netProfit = receipt.netProfit || 0;
+    totalAgentRevenue += netProfit;
+    
+    const receiptDate = receipt.createdAt || receipt.date;
+    if (receiptDate) {
+      const receiptDateObj = new Date(receiptDate);
+      if (receiptDateObj >= oneWeekAgo) {
+        agentRevenueThisWeek += netProfit;
+      }
+    }
+  }
+  
+  res.json({
+    totalReceipts,
+    totalCreditAmount,
+    totalDebitAmount,
+    totalBalance,
+    totalAgentRevenue,
+    agentRevenueThisWeek
+  });
+};
+
+/* =========================
+   CLEAR ALL RECEIPTS
+========================= */
+
+const clearReceipts = async (req, res) => {
+  await Receipt.deleteMany({});
+  res.json({ message: 'All receipts and balances have been cleared.' });
+};
+
+/* =========================
+   GET RECEIPT HTML (for HTML2Canvas) - RETURNS HTML INSTEAD OF IMAGE
+========================= */
+
+const getReceiptHTML = async (req, res) => {
+    try {
+        const receipt = await Receipt.findById(req.params.id);
+        if (!receipt) return res.status(404).json({ message: 'Not found' });
+
+        const { type } = req.query;
+        const date = new Date(receipt.date || Date.now());
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear().toString().slice(-2);
+        const logoUrl = getLogoUrl();
+        const companyName = receipt.companyName || '';
+
+        const offloadingAmount = receipt.offloadingAmount || 0;
+        const debtAmount = receipt.debtAmount || 0;
+        const totalDeductions = (receipt.debitTotal || 0);
+
+        if (type === 'customer') {
+            let totalSellingPrice = 0;
+            const items = receipt.credits.map((item, index) => {
+                const originalQty = item.qty || 0;
+                const dust = item.dust || 0;
+                const rate = item.rate || 0;
+                const effectiveQty = Math.max(0, originalQty - dust);
+                const amount = effectiveQty * rate;
+                totalSellingPrice += amount;
+                return {
+                    description: item.description || '',
+                    dust: dust,
+                    qty: originalQty,
+                    rate: rate,
+                    amount: formatNumber(amount),
+                    odd: index % 2 === 1
+                };
+            });
+
+            const finalBalance = Math.max(0, totalSellingPrice - totalDeductions);
+
+            const html = compiledCustomerTemplate({
+                logoUrl, day, month, year,
+                companyName: companyName,
+                customerName: receipt.customerName || '',
+                customerAddress: receipt.customerAddress || '',
+                customerPhone: receipt.customerPhone || '',
+                vehicleNo: receipt.vehicle || '',
+                items: items,
+                offloadingAmount: formatNumber(offloadingAmount),
+                debtAmount: formatNumber(debtAmount),
+                creditAmount: formatCurrency(totalSellingPrice),
+                debitAmount: formatCurrency(totalDeductions),
+                balanceAmount: formatCurrency(finalBalance)
+            });
+
+            res.setHeader('Content-Type', 'text/html');
+            res.send(html);
+        } else {
+            let totalSellingPrice = 0;
+            let totalProfit = 0;
+            const profits = [];
+            
+            const items = receipt.credits.map((item, index) => {
+                const originalQty = item.qty || 0;
+                const dust = item.dust || 0;
+                const rate = item.rate || 0;
+                const initialRate = item.initialRate || rate;
+                const effectiveQty = Math.max(0, originalQty - dust);
+                
+                const iAmount = originalQty * initialRate;
+                const fAmount = effectiveQty * rate;
+                const profit = fAmount - iAmount;
+                
+                totalSellingPrice += fAmount;
+                totalProfit += profit;
+                
+                profits.push({ 
+                    name: item.description || '', 
+                    amount: formatCurrency(Math.abs(profit)), 
+                    isPositive: profit > 0 
+                });
+                
+                return {
+                    description: item.description || '',
+                    dust: dust,
+                    qty: originalQty,
+                    iRate: formatNumber(initialRate),
+                    fRate: formatNumber(rate),
+                    iAmount: formatNumber(iAmount),
+                    fAmount: formatNumber(fAmount),
+                    odd: index % 2 === 1
+                };
+            });
+
+            const netProfit = Math.max(0, totalProfit - offloadingAmount);
+            const finalBalance = Math.max(0, totalSellingPrice - totalDeductions);
+
+            const html = compiledCompanyTemplate({
+                logoUrl, day, month, year,
+                companyName: companyName,
+                customerName: receipt.customerName || '',
+                customerAddress: receipt.customerAddress || '',
+                customerPhone: receipt.customerPhone || '',
+                vehicleNo: receipt.vehicle || '',
+                items: items,
+                offloadingAmount: formatNumber(offloadingAmount),
+                debtAmount: formatNumber(debtAmount),
+                profits: profits,
+                totalProfit: formatCurrency(netProfit),
+                creditAmount: formatCurrency(totalSellingPrice),
+                debitAmount: formatCurrency(totalDeductions),
+                balanceAmount: formatCurrency(finalBalance)
+            });
+
+            res.setHeader('Content-Type', 'text/html');
+            res.send(html);
+        }
+    } catch (error) {
+        console.error('Error in getReceiptHTML:', error);
+        res.status(500).json({ error: 'Failed to generate receipt', details: error.message });
+    }
+};
+
+/* =========================
+   EXPORTS
+========================= */
+
+module.exports = {
+    createReceipt,
+    getReceipts,
+    getReceiptById,
+    updateReceipt,
+    deleteReceipt,
+    getReceiptSummary,
+    clearReceipts,
+    getReceiptHTML,
+    getReceiptHistory
+};

@@ -1,0 +1,26 @@
+{
+  "builds": [
+    {
+      "src": "frontend/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://gani-eleke-backend.onrender.com/api/$1"
+    },
+    {
+      "src": "/img/(.*)",
+      "dest": "/frontend/img/$1"
+    },
+    {
+      "src": "/",
+      "dest": "/frontend/index.html"
+    },
+    {
+      "src": "/dashboard.html",
+      "dest": "/frontend/dashboard.html"
+    }
+  ]
+}
