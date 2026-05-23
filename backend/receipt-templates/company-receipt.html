@@ -338,20 +338,22 @@
             <thead>
                 <tr>
                     <th>ITEMS DETAILS</th>
-                    <th class="text-center">DUST</th>
+                    <th class="text-center">DUST (KG)</th>
                     <th class="text-center">QTY</th>
-                    <th class="text-center">I-RATE</th>
-                    <th class="text-center">F-RATE</th>
-                    <th class="text-right">I-AMOUNT #</th>
-                    <th class="text-right">F-AMOUNT #</th>
+                    <th class="text-center">EFF. QTY</th>
+                    <th class="text-center">I-RATE (₦)</th>
+                    <th class="text-center">F-RATE (₦)</th>
+                    <th class="text-right">I-AMOUNT (₦)</th>
+                    <th class="text-right">F-AMOUNT (₦)</th>
                 </tr>
             </thead>
             <tbody>
                 {{#each items}}
                 <tr class="{{#if odd}}bg-gray-100{{else}}bg-white{{/if}}">
                     <td>{{description}}</td>
-                    <td class="text-center">{{dust}}KG</td>
+                    <td class="text-center">{{dust}}</td>
                     <td class="text-center">{{qty}}</td>
+                    <td class="text-center font-bold text-blue-600">{{effectiveQty}}</td>
                     <td class="text-center">{{iRate}}</td>
                     <td class="text-center">{{fRate}}</td>
                     <td class="text-right">{{iAmount}}</td>
