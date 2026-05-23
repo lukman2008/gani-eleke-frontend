@@ -409,6 +409,7 @@ const getReceiptHTML = async (req, res) => {
                     description: item.description || '',
                     dust: dust,
                     qty: originalQty,
+                    effectiveQty: effectiveQty,
                     iRate: formatNumber(initialRate),
                     fRate: formatNumber(rate),
                     iAmount: formatNumber(iAmount),
