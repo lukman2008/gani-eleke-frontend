@@ -197,7 +197,6 @@ const updateReceipt = async (req, res) => {
 };
 
 /* =========================
-<<<<<<< HEAD
    GET RECEIPT HISTORY (for history page)
 ========================= */
 
@@ -259,8 +258,6 @@ const getReceiptHistory = async (req, res) => {
 };
 
 /* =========================
-=======
->>>>>>> f18b4121d3f61b389551a7192697929640088590
    DELETE RECEIPT
 ========================= */
 
@@ -461,10 +458,7 @@ module.exports = {
     deleteReceipt,
     getReceiptSummary,
     clearReceipts,
-<<<<<<< HEAD
     getReceiptHTML,
-    getReceiptHistory
-=======
+    getReceiptHistory,
     getReceiptHTML  // Changed from getReceiptPdf to getReceiptHTML
->>>>>>> f18b4121d3f61b389551a7192697929640088590
 };
