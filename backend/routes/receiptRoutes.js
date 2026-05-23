@@ -1,4 +1,5 @@
 ﻿const express = require('express');
+<<<<<<< HEAD
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 const { 
   createReceipt, 
@@ -34,5 +35,31 @@ router.route('/:id')
   .get(getReceiptById)
   .put(updateReceipt)
   .delete(deleteReceipt);
+=======
+const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
+const {
+    createReceipt,
+    getReceipts,
+    getReceiptById,
+    updateReceipt,
+    deleteReceipt,
+    getReceiptSummary,
+    clearReceipts,
+    getReceiptHTML
+} = require('../controllers/receiptController');
+
+router.use(protect);
+
+router.post('/', createReceipt);
+router.get('/', getReceipts);
+router.get('/summary', getReceiptSummary);
+router.get('/clear', clearReceipts);
+router.delete('/clear', clearReceipts);
+router.get('/:id', getReceiptById);
+router.put('/:id', updateReceipt);
+router.delete('/:id', deleteReceipt);
+router.get('/:id/html', getReceiptHTML);  // New endpoint for HTML
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
 
 module.exports = router;

@@ -6,22 +6,39 @@
     <title>Management Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<<<<<<< HEAD
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+=======
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Alpine.js cloak - prevents flashing */
+        [x-cloak] { display: none !important; }
+        
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
         @media (max-width: 768px) {
             .sidebar-collapsed { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 50; height: 100%; }
             .sidebar-open { transform: translateX(0); }
             .main-content { width: 100%; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+<<<<<<< HEAD
             .card-padding { padding: 1rem; }
             .text-responsive { font-size: 0.875rem; }
         }
         @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
+=======
+        }
+        @media (max-width: 480px) { 
+            .stats-grid { grid-template-columns: 1fr; } 
+        }
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
         button, a, [role="button"] { min-height: 44px; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+<<<<<<< HEAD
         ::-webkit-scrollbar-thumb:hover { background: #555; }
         .search-result {
             cursor: pointer;
@@ -36,14 +53,33 @@
         }
         .history-item:hover {
             background-color: #f3f4f6;
+=======
+        .search-result { cursor: pointer; transition: background-color 0.2s; }
+        .search-result:hover { background-color: #dbeafe !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
         }
     </style>
     <script>
     const getApiBaseUrl = () => {
         const hostname = window.location.hostname;
         const port = window.location.port;
+<<<<<<< HEAD
         console.log('Current hostname:', hostname, 'port:', port);
         
+=======
+        
+        // Local development
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
         if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5500') {
             return 'http://localhost:5000';
         }
@@ -51,6 +87,7 @@
             return '';
         }
         
+<<<<<<< HEAD
         return 'https://gani-eleke-backend.onrender.com';
     };
     
@@ -302,6 +339,27 @@
         this.loadReceiptHistory();
     }
 }" x-init="init()">
+=======
+        // Railway production URL - MAKE SURE https:// is included
+        return 'https://gani-eleke-backend-production.up.railway.app';
+    };
+    
+    const API_BASE_URL = getApiBaseUrl();
+    const getApiUrl = (path) => { 
+        const basePath = API_BASE_URL ? API_BASE_URL + '/api' : '/api'; 
+        return basePath + path;
+    };
+    
+    // Test if backend is reachable (optional, remove if causes issues)
+    console.log('API Base URL:', API_BASE_URL);
+    fetch(API_BASE_URL + '/api/health')
+        .then(res => res.json())
+        .then(data => console.log('Backend health check:', data))
+        .catch(err => console.error('Backend not reachable:', err));
+</script>
+</head>
+<body class="bg-gray-100 font-sans antialiased" x-data="app()" x-init="init()" x-cloak>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
 
     <div class="flex h-screen overflow-hidden">
         <button @click="toggleMobileMenu()" class="fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-lg md:hidden"><i class="fa-solid fa-bars text-xl"></i></button>
@@ -315,7 +373,10 @@
             <nav class="flex-1 mt-6 px-4 space-y-2">
                 <button @click="page = 'dashboard'; mobileMenuOpen = false" :class="page === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-chart-line w-5"></i><span class="font-medium">Dashboard</span></button>
                 <button @click="page = 'receipt'; mobileMenuOpen = false" :class="page === 'receipt' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-file-invoice-dollar w-5"></i><span class="font-medium text-left">Generate Receipt</span></button>
+<<<<<<< HEAD
                 <button @click="page = 'history'; mobileMenuOpen = false" :class="page === 'history' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-clock-rotate-left w-5"></i><span class="font-medium">Receipt History</span></button>
+=======
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                 <button @click="page = 'landrent'; mobileMenuOpen = false" :class="page === 'landrent' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-house-chimney-user w-5"></i><span class="font-medium">Land Rent</span></button>
                 <button @click="page = 'settings'; mobileMenuOpen = false" :class="page === 'settings' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-all"><i class="fa-solid fa-gears w-5"></i><span class="font-medium">Settings</span></button>
             </nav>
@@ -327,7 +388,11 @@
         <main class="flex-1 overflow-y-auto p-4 md:p-8 main-content">
             
             <!-- DASHBOARD PAGE -->
+<<<<<<< HEAD
             <template x-if="page === 'dashboard'">
+=======
+            <div x-show="page === 'dashboard'" x-cloak>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                 <div>
                     <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 md:mb-8 uppercase tracking-wide">Dashboard Overview</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -339,12 +404,20 @@
                         <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-200"><p class="text-gray-500 text-xs md:text-sm font-semibold uppercase">Total Agent Revenue</p><p class="text-xl md:text-3xl font-black text-amber-600 mt-1" x-text="'₦' + (summary.totalAgentRevenue || 0).toLocaleString()"></p></div>
                     </div>
                 </div>
+<<<<<<< HEAD
             </template>
 
             <!-- RECEIPT PAGE (Generate New Receipt) -->
             <template x-if="page === 'receipt'">
                 <div class="space-y-4 md:space-y-6">
                     <!-- Search Section -->
+=======
+            </div>
+
+            <!-- RECEIPT PAGE -->
+            <div x-show="page === 'receipt'" x-cloak>
+                <div class="space-y-4 md:space-y-6">
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-lg md:text-xl font-bold text-slate-800 uppercase tracking-tight">Find Older Receipt</h2>
                         <div class="relative w-full md:max-w-sm">
@@ -352,16 +425,26 @@
                             <input type="text" x-model="search" placeholder="Search name or Receipt ID..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                             <div x-show="search.length > 0" x-transition class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                                 <template x-for="receipt in filteredReceipts" :key="receipt._id">
+<<<<<<< HEAD
                                     <div class="p-3 search-result border-b border-slate-50" @click="downloadPDF('customer'); currentReceipt = receipt">
                                         <p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p>
                                         <p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p>
+=======
+                                    <div class="p-3 search-result border-b border-slate-50" @click="downloadReceipt(receipt._id, 'customer')">
+                                        <p class="text-sm font-bold text-slate-800" x-text="receipt.customerName"></p>
+                                        <p class="text-[10px] text-slate-400" x-text="receipt.receiptNumber + ' • ' + new Date(receipt.createdAt).toLocaleDateString()"></p>
+                                        <p class="text-[10px] text-blue-600 mt-1">Click to download receipt</p>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                                     </div>
                                 </template>
                             </div>
                         </div>
                     </div>
 
+<<<<<<< HEAD
                     <!-- Generate Receipt Form -->
+=======
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                     <div class="w-full bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl shadow-xl border border-gray-100">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-center text-slate-800 border-b pb-4">Generate New Receipt</h2>
                         <form @submit.prevent="createReceipt()" class="space-y-4 md:space-y-5">
@@ -377,10 +460,18 @@
                                 <div class="space-y-3 overflow-x-auto">
                                     <template x-for="(item, index) in items" :key="index">
                                         <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end bg-gray-50 p-3 rounded-lg">
+<<<<<<< HEAD
                                             <div class="col-span-2 md:col-span-4"><label class="text-[10px] font-bold uppercase text-slate-400">Description</label><input type="text" x-model="item.description" placeholder="Mix, Cast, etc" class="w-full p-2 text-sm border rounded-lg"></div>
                                             <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">QTY</label><input type="number" x-model="item.quantity" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
                                             <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">DUST (KG)</label><input type="number" x-model="item.dust" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
                                             <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">RATE (₦)</label><input type="number" x-model="item.rate" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
+=======
+                                            <div class="col-span-2 md:col-span-3"><label class="text-[10px] font-bold uppercase text-slate-400">Description</label><input type="text" x-model="item.description" placeholder="Mix, Cast, etc" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">QTY</label><input type="number" x-model="item.quantity" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">DUST (KG)</label><input type="number" x-model="item.dust" step="0.01" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">I-RATE (₦)</label><input type="number" x-model="item.initialRate" step="0.01" placeholder="Initial rate" class="w-full p-2 text-sm border rounded-lg"></div>
+                                            <div class="col-span-1 md:col-span-2"><label class="text-[10px] font-bold uppercase text-slate-400">F-RATE (₦)</label><input type="number" x-model="item.rate" step="0.01" placeholder="Final rate" class="w-full p-2 text-sm border rounded-lg"></div>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                                             <div class="col-span-1 md:col-span-1"><button type="button" @click="removeItem(index)" class="text-red-500 hover:text-red-700 p-2 mt-4 md:mt-0" x-show="items.length > 1"><i class="fa-solid fa-trash-can"></i></button></div>
                                         </div>
                                     </template>
@@ -395,7 +486,11 @@
                         </form>
                     </div>
 
+<<<<<<< HEAD
                     <!-- Print Modal -->
+=======
+                    <!-- MODAL - Fixed with x-cloak to prevent flashing -->
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                     <div x-show="showModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                         <div @click.away="showModal = false" class="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 md:p-8 text-center">
                             <div class="w-16 h-16 md:w-20 md:h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl"><i class="fa-solid fa-file-invoice"></i></div>
@@ -409,6 +504,7 @@
                         </div>
                     </div>
                 </div>
+<<<<<<< HEAD
             </template>
 
             <!-- RECEIPT HISTORY PAGE -->
@@ -497,6 +593,12 @@
 
             <!-- LAND RENT PAGE -->
             <template x-if="page === 'landrent'">
+=======
+            </div>
+
+            <!-- LAND RENT PAGE -->
+            <div x-show="page === 'landrent'" x-cloak>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                 <div class="space-y-4 md:space-y-6">
                     <div class="w-full bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-100">
                         <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800 border-b pb-4">Land Rental Registration</h2>
@@ -524,7 +626,19 @@
                                 <thead class="bg-gray-50"><tr><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Customer</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Phone</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Truck Type</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Material</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th><th class="px-3 md:px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Date</th></tr></thead>
                                 <tbody class="divide-y divide-gray-200">
                                     <template x-for="rental in landRents" :key="rental._id">
+<<<<<<< HEAD
                                         <tr class="hover:bg-gray-50"><td class="px-3 md:px-6 py-4"><div class="text-sm font-medium text-gray-900" x-text="rental.customerName"></div></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.customerPhone"></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.truckType"></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.material"></td><td class="px-3 md:px-6 py-4 text-sm font-bold text-green-600" x-text="'₦' + rental.amount.toLocaleString()"></td><td class="px-3 md:px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="rental.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" x-text="rental.status"></span></td><td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="new Date(rental.createdAt).toLocaleDateString()"></td></tr>
+=======
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-3 md:px-6 py-4"><div class="text-sm font-medium text-gray-900" x-text="rental.customerName"></div></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.customerPhone"></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.truckType"></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="rental.material"></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm font-bold text-green-600" x-text="'₦' + rental.amount.toLocaleString()"></td>
+                                            <td class="px-3 md:px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="rental.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" x-text="rental.status"></span></td>
+                                            <td class="px-3 md:px-6 py-4 text-sm text-gray-900" x-text="new Date(rental.createdAt).toLocaleDateString()"></td>
+                                        </tr>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                                     </template>
                                 </tbody>
                             </table>
@@ -532,6 +646,7 @@
                         <div x-show="landRents.length === 0" class="p-6 md:p-8 text-center text-gray-500"><i class="fa-solid fa-house-chimney-user text-3xl md:text-4xl mb-4 text-gray-300"></i><p class="text-sm md:text-base">No land rental transactions yet.</p></div>
                     </div>
                 </div>
+<<<<<<< HEAD
             </template>
 
             <!-- SETTINGS PAGE -->
@@ -542,6 +657,96 @@
                         <div class="space-y-4 md:space-y-6"><div><label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Assigned User Role</label><select class="w-full p-3 md:p-4 border border-gray-300 rounded-xl bg-gray-50 text-sm md:text-base"><option>Administrator</option><option>Agent</option><option>Secretary</option></select></div><div class="flex items-center justify-between p-3 md:p-4 bg-blue-50 rounded-xl flex-wrap gap-2"><div><h4 class="font-bold text-blue-900 text-sm md:text-base">Developer Mode</h4><p class="text-xs text-blue-700">Access system logs and API endpoints</p></div><input type="checkbox" class="w-5 h-5 md:w-6 md:h-6 rounded"></div></div>
                     </div>
                     <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border-2 border-red-200">
+=======
+            </div>
+
+            <!-- SETTINGS PAGE -->
+            <div x-show="page === 'settings'" x-cloak>
+                <div class="space-y-4 md:space-y-6">
+                    <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-4 md:mb-6 flex-wrap gap-2">
+                            <h2 class="text-xl md:text-2xl font-bold text-slate-800">Staff Management</h2>
+                            <button @click="showStaffModal = true; editingStaff = null" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700"><i class="fa-solid fa-user-plus mr-2"></i> Add New Staff</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50"><td><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th><th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th></tr></thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <template x-for="staff in staffList" :key="staff.id">
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-4 py-3 text-sm" x-text="staff.name"></td>
+                                            <td class="px-4 py-3 text-sm" x-text="staff.email"></td>
+                                            <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800" x-text="staff.role"></span></td>
+                                            <td class="px-4 py-3">
+                                                <button @click="editStaffMember(staff)" class="text-blue-600 hover:text-blue-800 mr-3"><i class="fa-solid fa-edit"></i></button>
+                                                <button @click="deleteStaffMember(staff.id)" class="text-red-600 hover:text-red-800"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                             </div>
+                                          </div>
+                                       </tr>
+                                    </template>
+                                </tbody>
+                             </table>
+                            <div x-show="staffList.length === 0" class="text-center py-8 text-gray-500"><i class="fa-solid fa-users text-4xl mb-2 text-gray-300"></i><p>No staff accounts created yet.</p></div>
+                        </div>
+                    </div>
+
+                    <!-- Staff Modal - Fixed with x-cloak -->
+                    <div x-show="showStaffModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
+                        <div @click.away="showStaffModal = false" class="bg-white w-full max-w-md rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold text-slate-800" x-text="editingStaff ? 'Edit Staff' : 'Add New Staff'"></h3>
+                                <button @click="showStaffModal = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xl"></i></button>
+                            </div>
+                            <form @submit.prevent="saveStaff()">
+                                <div class="space-y-4">
+                                    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Full Name *</label><input type="text" x-model="staffForm.name" required class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Email *</label><input type="email" x-model="staffForm.email" required class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div x-show="!editingStaff"><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Password *</label><input type="password" x-model="staffForm.password" required class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div x-show="editingStaff"><label class="block text-xs font-bold uppercase text-gray-500 mb-1">New Password (leave blank to keep current)</label><input type="password" x-model="staffForm.password" class="w-full p-3 border border-gray-200 rounded-lg text-sm"></div>
+                                    <div><label class="block text-xs font-bold uppercase text-gray-500 mb-1">Role *</label><select x-model="staffForm.role" class="w-full p-3 border border-gray-200 rounded-lg text-sm"><option value="manager">Manager</option><option value="agent">Agent</option><option value="secretary">Secretary</option><option value="staff">Staff</option></select></div>
+                                </div>
+                                <div class="flex gap-3 mt-6">
+                                    <button type="button" @click="showStaffModal = false" class="flex-1 py-2 bg-gray-200 rounded-lg font-semibold">Cancel</button>
+                                    <button type="submit" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"><span x-text="editingStaff ? 'Update' : 'Create'"></span></button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Clear Receipts Modal - Fixed with x-cloak -->
+                    <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
+                        <div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center">
+                            <div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div>
+                            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3>
+                            <p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p>
+                            <div class="flex gap-3 md:gap-4">
+                                <button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button>
+                                <button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clear All Modal - Fixed with x-cloak -->
+                    <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60">
+                        <div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300">
+                            <div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div>
+                            <h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3>
+                            <p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p>
+                            <div class="flex gap-3 md:gap-4">
+                                <button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button>
+                                <button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border border-gray-200">
+                        <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800">System Settings</h2>
+                        <div class="space-y-4 md:space-y-6"><div><label class="block text-sm font-bold text-gray-700 mb-2 uppercase">Your Account Role</label><div class="w-full p-3 bg-gray-100 rounded-xl text-sm" x-text="userRole"></div></div></div>
+                    </div>
+
+                    <div x-show="userRole === 'admin'" class="bg-white p-4 md:p-8 rounded-2xl shadow-sm border-2 border-red-200">
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
                         <div class="flex items-center gap-3 mb-4 md:mb-6"><i class="fa-solid fa-triangle-exclamation text-xl md:text-2xl text-red-600"></i><h2 class="text-xl md:text-2xl font-bold text-red-600">Danger Zone</h2></div>
                         <div class="space-y-3 md:space-y-4">
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 bg-red-50 rounded-xl gap-3"><div><h4 class="font-bold text-red-800 text-sm md:text-base">Clear All Receipts</h4><p class="text-xs text-red-600">Delete all receipt transactions</p></div><button @click="showClearReceiptsModal = true; clearingType = 'receipts'" class="bg-red-600 text-white px-4 md:px-6 py-2 rounded-lg font-bold text-sm md:text-base">Clear Receipts</button></div>
@@ -549,10 +754,15 @@
                             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 bg-red-700 rounded-xl gap-3"><div><h4 class="font-bold text-white text-sm md:text-base">⚠️ DELETE ALL TRANSACTIONS ⚠️</h4><p class="text-xs text-red-100">Delete EVERYTHING - Receipts, Land Rentals</p></div><button @click="showClearAllModal = true" class="bg-white text-red-700 px-4 md:px-6 py-2 rounded-lg font-bold text-sm md:text-base">DELETE ALL</button></div>
                         </div>
                     </div>
+<<<<<<< HEAD
                     <div x-show="showClearReceiptsModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-trash-can"></i></div><h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">Confirm Deletion</h3><p class="text-slate-500 text-sm md:text-base mb-6">Delete all <span class="font-bold text-red-600" x-text="clearingType"></span>? Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearReceiptsModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions(clearingType)" class="flex-1 py-2 md:py-3 bg-red-600 text-white rounded-xl font-bold text-sm md:text-base">Delete All</button></div></div></div>
                     <div x-show="showClearAllModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"><div class="bg-white w-full max-w-md rounded-3xl p-6 md:p-8 text-center border-2 border-red-300"><div class="w-16 h-16 md:w-20 md:h-20 bg-red-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 text-3xl md:text-4xl"><i class="fa-solid fa-skull-crossbones"></i></div><h3 class="text-xl md:text-2xl font-bold text-red-600 mb-2">⚠️ DESTRUCTIVE ACTION ⚠️</h3><p class="text-red-600 font-bold text-sm md:text-base mb-6">This will delete EVERYTHING! Cannot be undone!</p><div class="flex gap-3 md:gap-4"><button @click="showClearAllModal = false" class="flex-1 py-2 md:py-3 bg-gray-200 rounded-xl font-bold text-sm md:text-base">Cancel</button><button @click="clearTransactions('all')" class="flex-1 py-2 md:py-3 bg-red-700 text-white rounded-xl font-bold text-sm md:text-base">DELETE EVERYTHING</button></div></div></div>
                 </div>
             </template>
+=======
+                </div>
+            </div>
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
 
         </main>
     </div>
@@ -561,6 +771,414 @@
         if (!localStorage.getItem('token')) {
             window.location.href = 'index.html';
         }
+<<<<<<< HEAD
+=======
+
+        function app() {
+            return {
+                // State variables - all initialized to false/non-flashing states
+                page: 'dashboard',
+                mobileMenuOpen: false,
+                token: localStorage.getItem('token'),
+                summary: { totalReceipts: 0, totalCredit: 0, totalDebit: 0, totalBalance: 0, landRevenueThisWeek: 0, totalLandRevenue: 0, agentRevenue: 0, agentRevenueThisWeek: 0, totalAgentRevenue: 0 },
+                receipts: [],
+                search: '',
+                showModal: false,
+                currentReceipt: null,
+                customerName: '',
+                customerPhone: '',
+                customerAddress: '',
+                vehicleNo: '',
+                expenses: '',
+                debtAmount: '',
+                companyName: '',
+                items: [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }],
+                landRents: [],
+                landCustomerName: '',
+                landCustomerPhone: '',
+                truckType: '',
+                material: '',
+                amount: '',
+                status: 'pending',
+                landNotes: '',
+                showClearReceiptsModal: false,
+                showClearAllModal: false,
+                clearingType: null,
+                staffList: [],
+                showStaffModal: false,
+                editingStaff: null,
+                staffForm: { name: '', email: '', password: '', role: 'staff' },
+                userRole: '',
+                isGenerating: false,
+
+                toggleMobileMenu() { this.mobileMenuOpen = !this.mobileMenuOpen; },
+                
+                logout() { 
+                    localStorage.removeItem('token'); 
+                    if (window.location.hostname.includes('vercel.app')) {
+                        window.location.href = '/frontend/index.html';
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                },
+                            
+                showLoadingToast(message) {
+                    let toast = document.createElement('div');
+                    toast.id = 'loading-toast';
+                    toast.innerHTML = '<div class="loading-spinner"></div> ' + message;
+                    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e3a8a;color:white;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;';
+                    document.body.appendChild(toast);
+                    return toast;
+                },
+                
+                hideLoadingToast() {
+                    let toast = document.getElementById('loading-toast');
+                    if (toast) toast.remove();
+                },
+                
+                async loadSummary() {
+                    if (!this.token) return;
+                    try {
+                        let receiptRes = await fetch(getApiUrl('/receipts/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        let landRentRes = await fetch(getApiUrl('/landrents/summary'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (receiptRes.ok) {
+                            let receiptData = await receiptRes.json();
+                            this.summary.totalReceipts = receiptData.totalReceipts || 0;
+                            this.summary.totalCredit = receiptData.totalCreditAmount || 0;
+                            this.summary.totalDebit = receiptData.totalDebitAmount || 0;
+                            this.summary.totalBalance = receiptData.totalBalance || 0;
+                            this.summary.agentRevenue = receiptData.totalAgentRevenue || 0;
+                            this.summary.agentRevenueThisWeek = receiptData.agentRevenueThisWeek || 0;
+                            this.summary.totalAgentRevenue = receiptData.totalAgentRevenue || 0;
+                        }
+                        if (landRentRes.ok) {
+                            let landData = await landRentRes.json();
+                            this.summary.totalLandRevenue = landData.totalRevenue || 0;
+                            this.summary.landRevenueThisWeek = landData.weeklyRevenue || 0;
+                        }
+                    } catch (err) { 
+                        console.error('Failed to load summary', err); 
+                    }
+                },
+                
+                addItem() { this.items.push({ description: '', quantity: '', dust: '', initialRate: '', rate: '' }); },
+                removeItem(index) { if (this.items.length > 1) this.items.splice(index, 1); },
+                
+                get totalPayment() {
+                    let total = 0;
+                    for (let item of this.items) {
+                        if (item.quantity && item.rate) {
+                            total += (parseFloat(item.quantity) * parseFloat(item.rate)) - (parseFloat(item.dust) || 0);
+                        }
+                    }
+                    let expensesDebit = parseFloat(this.expenses) || 0;
+                    let debt = parseFloat(this.debtAmount) || 0;
+                    return Math.max(total - expensesDebit - debt, 0);
+                },
+                
+                get filteredReceipts() { 
+                    return this.receipts.filter(r => {
+                        return (r.customerName && r.customerName.toLowerCase().includes(this.search.toLowerCase())) || 
+                               (r.receiptNumber && r.receiptNumber.toLowerCase().includes(this.search.toLowerCase()));
+                    }); 
+                },
+                
+                async loadReceipts() { 
+                    if (!this.token) return; 
+                    try { 
+                        let res = await fetch(getApiUrl('/receipts'), { headers: { 'Authorization': 'Bearer ' + this.token } }); 
+                        if (res.ok) this.receipts = await res.json(); 
+                    } catch (err) { console.error('Failed to load receipts', err); } 
+                },
+                
+                async createReceipt() {
+                    if (!this.token) return;
+                    let credits = [];
+                    for (let item of this.items) {
+                        if (item.description && item.quantity && item.rate) {
+                            credits.push({ 
+                                description: item.description, 
+                                qty: parseFloat(item.quantity), 
+                                dust: parseFloat(item.dust) || 0, 
+                                rate: parseFloat(item.rate),
+                                initialRate: parseFloat(item.initialRate) || parseFloat(item.rate)
+                            });
+                        }
+                    }
+                    if (credits.length === 0) { alert('Please add at least one item'); return; }
+                    let less = [];
+                    if (this.expenses && parseFloat(this.expenses) > 0) less.push({ description: 'Offloading', amount: parseFloat(this.expenses), date: new Date() });
+                    if (this.debtAmount && parseFloat(this.debtAmount) > 0) less.push({ description: 'Debt Deduction', amount: parseFloat(this.debtAmount), date: new Date() });
+                    let data = { 
+                        customerName: this.customerName, 
+                        customerPhone: this.customerPhone, 
+                        customerAddress: this.customerAddress, 
+                        vehicle: this.vehicleNo, 
+                        companyName: this.companyName, 
+                        receiptTitle: 'Sales Receipt', 
+                        credits: credits, 
+                        less: less, 
+                        companyInfo: { 
+                            name: 'Africa Steel Ltd', 
+                            email: 'ganiolaiya123@gmail.com', 
+                            phone: '08033281397, 08052944592, 08062514308', 
+                            address: 'Line11, Shop 1, Owode Onirin, Ikorodu road, Lagos.' 
+                        }, 
+                        creditorName: 'Gani Eleke', 
+                        creditorPhone: '08033281397' 
+                    };
+                    try {
+                        let res = await fetch(getApiUrl('/receipts'), { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, 
+                            body: JSON.stringify(data) 
+                        });
+                        if (res.ok) {
+                            let receipt = await res.json();
+                            this.receipts.unshift(receipt);
+                            this.currentReceipt = receipt;
+                            this.showModal = true;
+                            this.customerName = ''; 
+                            this.customerPhone = ''; 
+                            this.customerAddress = ''; 
+                            this.vehicleNo = ''; 
+                            this.expenses = ''; 
+                            this.debtAmount = ''; 
+                            this.companyName = '';
+                            this.items = [{ description: '', quantity: '', dust: '', initialRate: '', rate: '' }];
+                            await this.loadSummary();
+                        } else { 
+                            let error = await res.json(); 
+                            alert(error.message || 'Error creating receipt'); 
+                        }
+                    } catch (err) { 
+                        alert('Network error: ' + err.message); 
+                    }
+                },
+                
+                async downloadReceipt(receiptId, type) {
+                    if (!receiptId) return;
+                    if (this.isGenerating) {
+                        alert('Please wait, generating receipt...');
+                        return;
+                    }
+                    this.isGenerating = true;
+                    this.showLoadingToast('Generating receipt image, please wait...');
+                    try {
+                        let url = getApiUrl('/receipts/' + receiptId + '/html?type=' + type);
+                        console.log('Fetching HTML from:', url);
+                        let res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            let html = await res.text();
+                            let hiddenContainer = document.createElement('div');
+                            hiddenContainer.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:800px;background:white;padding:0;margin:0;z-index:-1;';
+                            document.body.appendChild(hiddenContainer);
+                            hiddenContainer.innerHTML = html;
+                            await new Promise(resolve => setTimeout(resolve, 800));
+                            let receiptElement = hiddenContainer.querySelector('.receipt-container');
+                            if (receiptElement) {
+                                let canvas = await html2canvas(receiptElement, {
+                                    scale: 2.5,
+                                    backgroundColor: '#ffffff',
+                                    logging: false,
+                                    useCORS: true,
+                                    allowTaint: false
+                                });
+                                let link = document.createElement('a');
+                                link.download = 'receipt-' + receiptId + '-' + type + '.png';
+                                link.href = canvas.toDataURL('image/png');
+                                link.click();
+                                console.log('Download started successfully');
+                            } else {
+                                alert('Could not find receipt element');
+                            }
+                            document.body.removeChild(hiddenContainer);
+                        } else {
+                            let error = await res.json();
+                            console.error('Server error:', error);
+                            alert('Failed to generate receipt: ' + (error.error || error.message));
+                        }
+                    } catch (err) {
+                        console.error('Error:', err);
+                        alert('Error generating receipt: ' + err.message);
+                    } finally {
+                        this.isGenerating = false;
+                        this.hideLoadingToast();
+                    }
+                },
+                
+                async downloadPDF(type) {
+                    if (!this.currentReceipt) return;
+                    await this.downloadReceipt(this.currentReceipt._id, type);
+                },
+                
+                async loadLandRents() { 
+                    if (!this.token) return; 
+                    try { 
+                        let res = await fetch(getApiUrl('/landrents'), { headers: { 'Authorization': 'Bearer ' + this.token } }); 
+                        if (res.ok) this.landRents = await res.json(); 
+                    } catch (err) { alert('Network error'); } 
+                },
+                
+                async createLandRent() {
+                    if (!this.token) return;
+                    let data = { 
+                        customerName: this.landCustomerName, 
+                        customerPhone: this.landCustomerPhone, 
+                        truckType: this.truckType, 
+                        material: this.material, 
+                        amount: parseFloat(this.amount) || 0, 
+                        status: this.status, 
+                        notes: this.landNotes 
+                    };
+                    if (!data.customerName || !data.truckType || !data.material || data.amount <= 0) { 
+                        alert('Please fill all required fields'); 
+                        return; 
+                    }
+                    try {
+                        let res = await fetch(getApiUrl('/landrents'), { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, 
+                            body: JSON.stringify(data) 
+                        });
+                        if (res.ok) {
+                            let landRent = await res.json();
+                            this.landRents.unshift(landRent);
+                            this.landCustomerName = ''; 
+                            this.landCustomerPhone = ''; 
+                            this.truckType = ''; 
+                            this.material = ''; 
+                            this.amount = ''; 
+                            this.status = 'pending'; 
+                            this.landNotes = '';
+                            alert('Land rental registered successfully!');
+                            await this.loadSummary();
+                        } else { 
+                            let error = await res.json(); 
+                            alert(error.message || 'Error creating land rental'); 
+                        }
+                    } catch (err) { 
+                        alert('Network error'); 
+                    }
+                },
+                
+                async clearTransactions(type) {
+                    if (!this.token) return;
+                    try {
+                        let response;
+                        if (type === 'receipts') response = await fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        else if (type === 'landrents') response = await fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        else if (type === 'all') {
+                            await Promise.all([ 
+                                fetch(getApiUrl('/receipts/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }), 
+                                fetch(getApiUrl('/landrents/clear'), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } }) 
+                            ]);
+                            response = { ok: true };
+                        }
+                        if (response && response.ok) {
+                            alert(type.toUpperCase() + ' cleared successfully!');
+                            await this.loadSummary();
+                            if (type === 'receipts' || type === 'all') await this.loadReceipts();
+                            if (type === 'landrents' || type === 'all') await this.loadLandRents();
+                            this.showClearReceiptsModal = false; 
+                            this.showClearAllModal = false;
+                        }
+                    } catch (err) { 
+                        alert('Network error: ' + err.message); 
+                    }
+                },
+                
+                async loadStaffList() {
+                    if (!this.token) return;
+                    try {
+                        let res = await fetch(getApiUrl('/auth/staff'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            this.staffList = await res.json();
+                        }
+                    } catch (err) {
+                        console.error('Failed to load staff:', err);
+                    }
+                },
+                
+                async saveStaff() {
+                    if (!this.token) return;
+                    try {
+                        let url = getApiUrl('/auth/staff');
+                        let method = 'POST';
+                        if (this.editingStaff) {
+                            url = getApiUrl('/auth/staff/' + this.editingStaff.id);
+                            method = 'PUT';
+                        }
+                        let res = await fetch(url, {
+                            method: method,
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token },
+                            body: JSON.stringify(this.staffForm)
+                        });
+                        if (res.ok) {
+                            alert(this.editingStaff ? 'Staff updated successfully!' : 'Staff created successfully!');
+                            this.showStaffModal = false;
+                            this.staffForm = { name: '', email: '', password: '', role: 'staff' };
+                            this.editingStaff = null;
+                            await this.loadStaffList();
+                        } else {
+                            let error = await res.json();
+                            alert(error.message || 'Operation failed');
+                        }
+                    } catch (err) {
+                        alert('Network error: ' + err.message);
+                    }
+                },
+                
+                editStaffMember(staff) {
+                    this.editingStaff = staff;
+                    this.staffForm = {
+                        name: staff.name,
+                        email: staff.email,
+                        password: '',
+                        role: staff.role
+                    };
+                    this.showStaffModal = true;
+                },
+                
+                async deleteStaffMember(id) {
+                    if (!confirm('Are you sure you want to delete this staff member? This action cannot be undone.')) return;
+                    try {
+                        let res = await fetch(getApiUrl('/auth/staff/' + id), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            alert('Staff deleted successfully!');
+                            await this.loadStaffList();
+                        } else {
+                            let error = await res.json();
+                            alert(error.message || 'Delete failed');
+                        }
+                    } catch (err) {
+                        alert('Network error: ' + err.message);
+                    }
+                },
+                
+                async loadUserInfo() {
+                    if (!this.token) return;
+                    try {
+                        let res = await fetch(getApiUrl('/auth/me'), { headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (res.ok) {
+                            let user = await res.json();
+                            this.userRole = user.role;
+                        }
+                    } catch (err) {
+                        console.error('Failed to load user info:', err);
+                    }
+                },
+                
+                init() {
+                    this.loadSummary();
+                    this.loadReceipts();
+                    this.loadLandRents();
+                    this.loadStaffList();
+                    this.loadUserInfo();
+                }
+            }
+        }
+>>>>>>> f18b4121d3f61b389551a7192697929640088590
     </script>
 </body>
 </html>
