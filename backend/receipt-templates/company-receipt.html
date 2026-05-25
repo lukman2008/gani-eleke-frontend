@@ -225,6 +225,8 @@
             padding: 6px 0;
             font-size: 13px;
         }
+        .profit-negative { color: #dc2626; }
+        .profit-positive { color: #16a34a; }
         .balance-row {
             display: flex;
             justify-content: space-between;
@@ -383,13 +385,15 @@
             </tbody>
         </table>
 
-        <div class="profit-section">
+       <div class="profit-section">
             <div class="profit-left">
-                <p class="profit-title">Profits:</p>
+                <p class="profit-title">Profit/Loss Breakdown:</p>
                 {{#each profits}}
-                <p>{{name}}: {{amount}}</p>
+                <p class="{{#if isNegative}}profit-negative{{else}}profit-positive{{/if}}">{{name}}: {{amount}}</p>
                 {{/each}}
-                <p class="profit-title" style="margin-top: 8px;">Profit: {{totalProfit}}</p>
+                <p class="{{#if isNetLoss}}profit-negative{{else}}profit-positive{{/if}}" style="margin-top: 8px; font-weight: bold;">
+                    {{netProfitLabel}}: {{totalProfit}}
+                </p>
             </div>
             <div class="totals-right">
                 <div class="total-row"><strong>Credit:</strong> <span>{{creditAmount}}</span></div>

@@ -14,6 +14,13 @@ const formatCurrency = (amount) => {
 
 const formatNumber = (num) => num.toLocaleString('en-US');
 
+const formatProfitCurrency = (amount) => {
+    const isNegative = amount < 0;
+    const absAmount = Math.abs(amount);
+    const formatted = `NGN${absAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return isNegative ? `(${formatted})` : formatted;
+};
+
 const getLogoUrl = () => 'https://gani-eleke-project.vercel.app/frontend/img/logo.jpeg';
 
 /* =========================
@@ -87,9 +94,9 @@ const computeReceipt = ({ customerName, credits = [], less = [], note }) => {
   const totalSellingPrice = normalizedCredits.reduce((sum, i) => sum + i.fAmount, 0);
   const totalCostPrice = normalizedCredits.reduce((sum, i) => sum + i.iAmount, 0);
   const totalProfitBeforeOffloading = totalSellingPrice - totalCostPrice;
-  const netProfit = Math.max(0, totalProfitBeforeOffloading - offloadingAmount);
+  const netProfit = totalProfitBeforeOffloading - offloadingAmount; // Allow negative profit (loss)
   const totalDeductions = offloadingAmount + debtAmount;
-  const balance = Math.max(0, totalSellingPrice - totalDeductions);
+  const balance = totalSellingPrice - totalDeductions; // Allow negative balance if needed
 
   return {
     customerName,
@@ -216,7 +223,7 @@ const getReceiptHistory = async (req, res) => {
             }
             
             const totalDeductions = (receipt.debitTotal || 0);
-            const balance = Math.max(0, totalSellingPrice - totalDeductions);
+            const balance = totalSellingPrice - totalDeductions;
             
             // Group by month
             const date = receipt.createdAt || receipt.date || new Date();
@@ -361,7 +368,7 @@ const getReceiptHTML = async (req, res) => {
                 };
             });
 
-            const finalBalance = Math.max(0, totalSellingPrice - totalDeductions);
+            const finalBalance = totalSellingPrice - totalDeductions;
 
             const html = compiledCustomerTemplate({
                 logoUrl, day, month, year,
@@ -399,10 +406,12 @@ const getReceiptHTML = async (req, res) => {
                 totalSellingPrice += fAmount;
                 totalProfit += profit;
                 
+                // Show actual profit (can be negative for loss)
                 profits.push({ 
                     name: item.description || '', 
-                    amount: formatCurrency(Math.abs(profit)), 
-                    isPositive: profit > 0 
+                    amount: formatProfitCurrency(profit),
+                    isPositive: profit > 0,
+                    isNegative: profit < 0
                 });
                 
                 return {
@@ -418,8 +427,10 @@ const getReceiptHTML = async (req, res) => {
                 };
             });
 
-            const netProfit = Math.max(0, totalProfit - offloadingAmount);
-            const finalBalance = Math.max(0, totalSellingPrice - totalDeductions);
+            const netProfit = totalProfit - offloadingAmount;
+            const finalBalance = totalSellingPrice - totalDeductions;
+            const isNetLoss = netProfit < 0;
+            const netProfitLabel = isNetLoss ? 'Net Loss' : 'Net Profit';
 
             const html = compiledCompanyTemplate({
                 logoUrl, day, month, year,
@@ -432,7 +443,9 @@ const getReceiptHTML = async (req, res) => {
                 offloadingAmount: formatNumber(offloadingAmount),
                 debtAmount: formatNumber(debtAmount),
                 profits: profits,
-                totalProfit: formatCurrency(netProfit),
+                netProfitLabel: netProfitLabel,
+                totalProfit: formatProfitCurrency(netProfit),
+                isNetLoss: isNetLoss,
                 creditAmount: formatCurrency(totalSellingPrice),
                 debitAmount: formatCurrency(totalDeductions),
                 balanceAmount: formatCurrency(finalBalance)
