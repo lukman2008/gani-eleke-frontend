@@ -252,3 +252,11 @@ module.exports = {
   deleteStaff,
   getMe
 };
+
+
+
+
+// PORT=5000
+// MONGO_URI=mongodb+srv://ganielekeent:Eleke%402025@cluster0.grocadq.mongodb.net/?appName=Cluster0
+// JWT_SECRET=98689ae76594cabc76236db885f74a967443219086986aa9bcbff67d5dacf01a
+// ADMIN_SECRET=adminsupersecret
