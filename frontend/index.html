@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-        // Direct API configuration - point to your actual backend
-        const API_BASE_URL = 'https://elekerentalbe-production.up.railway.app/api/health';
+        // Direct API configuration - point to your actual backend (NO /api/health)
+        const API_BASE_URL = 'https://elekerentalbe-production.up.railway.app';
         
         console.log('API Base URL:', API_BASE_URL);
     </script>
@@ -46,7 +46,8 @@
         </div>
     </div>
 
-    <script>        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
@@ -85,6 +86,3 @@
 
 </body>
 </html>
-
-
-
